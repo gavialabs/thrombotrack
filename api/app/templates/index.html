@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flask PostgreSQL Template</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 60px 40px;
+            max-width: 600px;
+            width: 100%;
+            text-align: center;
+        }
+        
+        .logo {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        h1 {
+            color: #2d3748;
+            font-size: 36px;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+        
+        .subtitle {
+            color: #718096;
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+        
+        .features {
+            display: grid;
+            gap: 15px;
+            margin-bottom: 40px;
+            text-align: left;
+        }
+        
+        .feature {
+            background: #f7fafc;
+            padding: 15px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: transform 0.2s;
+        }
+        
+        .feature:hover {
+            transform: translateX(5px);
+        }
+        
+        .feature-icon {
+            font-size: 24px;
+        }
+        
+        .feature-text {
+            color: #4a5568;
+            font-size: 16px;
+        }
+        
+        .links {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #edf2f7;
+            color: #4a5568;
+        }
+        
+        .btn-secondary:hover {
+            background: #e2e8f0;
+            transform: translateY(-2px);
+        }
+        
+        .status {
+            margin-top: 30px;
+            padding: 15px;
+            background: #c6f6d5;
+            color: #22543d;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 40px 20px;
+            }
+            
+            h1 {
+                font-size: 28px;
+            }
+            
+            .subtitle {
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">🚀</div>
+        <h1>Flask PostgreSQL Template</h1>
+        <p class="subtitle">Production-ready starter with Docker, pgAdmin & migrations</p>
+        
+        <div class="features">
+            <div class="feature">
+                <span class="feature-icon">🐍</span>
+                <span class="feature-text">Flask web framework</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🐘</span>
+                <span class="feature-text">PostgreSQL database</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔧</span>
+                <span class="feature-text">pgAdmin interface</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🔄</span>
+                <span class="feature-text">Alembic migrations</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">💾</span>
+                <span class="feature-text">Automated backups</span>
+            </div>
+            <div class="feature">
+                <span class="feature-icon">🐳</span>
+                <span class="feature-text">Docker containerized</span>
+            </div>
+        </div>
+        
+        <div class="links">
+            <a href="/api/users" class="btn btn-primary">View API Demo</a>
+            <a href="http://localhost:5050" class="btn btn-secondary" target="_blank">Open pgAdmin</a>
+        </div>
+        
+        <div class="status">
+            ✓ Application is running successfully
+        </div>
+    </div>
+</body>
+</html>
