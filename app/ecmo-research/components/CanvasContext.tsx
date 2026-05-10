@@ -1,13 +1,13 @@
 import React, { useContext, useRef, useState } from "react";
-import ecmoImage from "./IMG_4452c.jpg";
 
-// enabling drawing on the blank canvas
 const CanvasContext = React.createContext();
 
-export const CanvasProvider = ({ children }) => {
+export const CanvasProvider = ({ children, ecmoImage, detectClotOrFibrin }) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef(null);
   const contextRef = useRef(null);
+  
+  const path = useRef(new Set<[number, number]>());
 
   //defining width & height of the canvas
   const prepareCanvas = () => {
@@ -21,46 +21,55 @@ export const CanvasProvider = ({ children }) => {
     const context = canvas.getContext("2d");
 
     const image = new Image();
-    // image.src = "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6b/Picture_icon_BLACK.svg/1200px-Picture_icon_BLACK.svg.png";
-    console.log(image);
-    console.log(image.src);
-    console.log(ecmoImage);
-    image.src = ecmoImage.uri;
-    console.log(image);
-    console.log(image.src);
-    // image.src = require("./IMG_4452c.jpg");
+    const src = URL.createObjectURL(ecmoImage);
+    // TODO - URL.revokeObjectURL(url)
+    image.src = src;
     image.onload = () => {
-      context.drawImage(image, 0, 0, window.innerWidth, image.height / image.width * window.innerWidth);
+      context.drawImage(
+        image,
+        0,
+        0,
+        window.innerWidth,
+        (image.height / image.width) * window.innerWidth,
+      );
     };
 
     context.scale(2, 2);
     context.lineCap = "round";
-    context.strokeStyle = "black";
+    context.strokeStyle = "cornflowerblue";
     context.lineWidth = 5;
+    context.fillStyle = "cornflowerblue";
     contextRef.current = context;
   };
 
   const startDrawing = ({ nativeEvent }) => {
-    console.log(nativeEvent);
-
-    const { offsetX, offsetY, layerX, layerY } = nativeEvent;
+    const { layerX, layerY } = nativeEvent;
     contextRef.current.beginPath();
+    contextRef.current.ellipse(layerX, layerY, 0.5, 0.5, 0, 0, Math.PI * 2);
+    contextRef.current.stroke();
     contextRef.current.moveTo(layerX, layerY);
     setIsDrawing(true);
+    path.current.add([layerX, layerY]);
   };
 
   const finishDrawing = () => {
     contextRef.current.closePath();
     setIsDrawing(false);
+
+    // call endpoint
+    // on response, clear canvas and reload image (this might clear it anyway)
+    detectClotOrFibrin(path.current);
   };
 
   const draw = ({ nativeEvent }) => {
     if (!isDrawing) {
       return;
     }
-    const { offsetX, offsetY, layerX, layerY } = nativeEvent;
+
+    const { layerX, layerY } = nativeEvent;
     contextRef.current.lineTo(layerX, layerY);
     contextRef.current.stroke();
+    path.current.add([layerX, layerY]);
   };
 
   //once the canvas is cleared it return to the default colour
@@ -80,7 +89,7 @@ export const CanvasProvider = ({ children }) => {
         startDrawing,
         finishDrawing,
         clearCanvas,
-        draw
+        draw,
       }}
     >
       {children}

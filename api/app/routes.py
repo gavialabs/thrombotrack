@@ -1,12 +1,23 @@
+import base64
+import io
 import os
-from flask import Blueprint, jsonify, render_template, request, current_app as app
+from flask import (
+    Blueprint,
+    jsonify,
+    render_template,
+    request,
+    current_app as app,
+    send_file,
+)
 from PIL import Image
 from uuid import UUID, uuid4
+from sqlalchemy import func
 from werkzeug.utils import secure_filename
 from . import db
 from .models import Ecmo, Image as EcmoImage
 from .schemas import EcmoSchema
-from .services import crop_diamond_oxygenator
+
+# from .services import crop_diamond_oxygenator
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 GETINGE_ECMO_SIDE_LENGTH_MM = 88
@@ -27,7 +38,9 @@ def index():
 
 @bp.route("/ecmos")
 def get_ecmos():
-    ecmos = db.session.execute(db.select(Ecmo)).scalars()
+    ecmos = db.session.execute(
+        db.select(Ecmo).order_by(func.lower(Ecmo.name))
+    ).scalars()
     return EcmoSchema(many=True).dump(ecmos)
 
 
@@ -57,6 +70,31 @@ def create_ecmo():
     )
 
 
+@bp.route("/ecmo/<uuid:ecmo_id>", methods=["PATCH"])
+def edit_ecmo(ecmo_id: UUID):
+    name = request.json.get("name")
+
+    if not name:
+        return jsonify({}), 400
+
+    ecmo = db.get_or_404(Ecmo, ecmo_id)
+    ecmo.name = name
+
+    db.session.commit()
+
+    return jsonify({}), 200
+
+
+@bp.route("/ecmo/<uuid:ecmo_id>", methods=["DELETE"])
+def delete_ecmo(ecmo_id: UUID):
+    ecmo = db.get_or_404(Ecmo, ecmo_id)
+    
+    db.session.delete(ecmo)
+    db.session.commit()
+
+    return jsonify({}), 200
+
+
 @bp.route("/ecmo/<uuid:ecmo_id>", methods=["POST"])
 def upload_image(ecmo_id: UUID):
     ecmo = db.get_or_404(Ecmo, ecmo_id)
@@ -75,19 +113,12 @@ def upload_image(ecmo_id: UUID):
         return {"error": "File type not allowed"}, 400
 
     filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
-    # filepath = os.path.join(app.config["UPLOAD_FOLDER"], filename)
-    # image_file.save(filepath)
-    
-    # app.logger.info(image_file.name)
-    # app.logger.info(image_file.filename)
-    # app.logger.info(image_file.content_length)
-    # app.logger.info(image_file.content_type)
 
     image_data = Image.open(image_file.stream)
     cropped = crop_diamond_oxygenator(image_data)
 
     square_pixels_area = cropped.shape[0] * cropped.shape[1]
-    square_mm_area = GETINGE_ECMO_SIDE_LENGTH_MM ** 2
+    square_mm_area = GETINGE_ECMO_SIDE_LENGTH_MM**2
     mm2_per_p2 = square_mm_area / square_pixels_area
 
     image = EcmoImage(
@@ -105,9 +136,24 @@ def upload_image(ecmo_id: UUID):
     image_data.close()
     image_file.close()
 
-    return {
-        "message": "Photo uploaded",
-    }, 201
+    img = Image.fromarray(cropped)
+    file_object = io.BytesIO()
+    img.save(file_object, "jpeg")
+    file_object.seek(0)
+
+    return jsonify(
+        {
+            "image_id": image.id,
+            "image": base64.b64encode(file_object.read()).decode("utf-8"),
+            "mime_type": "image/jpeg",  # TODO - support any image mime type uploaded
+        }
+    )
+
+
+@bp.route("/ecmo/<uuid:ecmo_id>/images/<uuid:image_id>/segmentations", methods=["POST"])
+def create_segmentation(ecmo_id: UUID, image_id: UUID):
+    # /payload = AnnotationSchema().load(request.json)
+    pass
 
 
 @bp.route("/health")
