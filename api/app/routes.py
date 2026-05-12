@@ -8,14 +8,16 @@ from flask import (
     request,
     current_app as app,
     send_file,
+    abort,
 )
 from PIL import Image
 from uuid import UUID, uuid4
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
 from . import db
-from .models import Ecmo, Image as EcmoImage
-from .schemas import EcmoSchema
+from .models import Ecmo, Image as EcmoImage, AnnotationSession
+from .schemas import EcmoSchema, EcmoImageSchema, SegmentationSchema
+from .services import create_image, create_segmentation
 
 # from .services import crop_diamond_oxygenator
 
@@ -88,14 +90,14 @@ def edit_ecmo(ecmo_id: UUID):
 @bp.route("/ecmo/<uuid:ecmo_id>", methods=["DELETE"])
 def delete_ecmo(ecmo_id: UUID):
     ecmo = db.get_or_404(Ecmo, ecmo_id)
-    
+
     db.session.delete(ecmo)
     db.session.commit()
 
     return jsonify({}), 200
 
 
-@bp.route("/ecmo/<uuid:ecmo_id>", methods=["POST"])
+@bp.route("/ecmo/<uuid:ecmo_id>/images", methods=["POST"])
 def upload_image(ecmo_id: UUID):
     ecmo = db.get_or_404(Ecmo, ecmo_id)
 
@@ -112,48 +114,43 @@ def upload_image(ecmo_id: UUID):
     if not allowed_file(image_file.filename):
         return {"error": "File type not allowed"}, 400
 
-    filename = f"{uuid4().hex}_{secure_filename(image_file.filename)}"
+    ecmo_image = create_image(ecmo_id, image_file)
 
-    image_data = Image.open(image_file.stream)
-    cropped = crop_diamond_oxygenator(image_data)
-
-    square_pixels_area = cropped.shape[0] * cropped.shape[1]
-    square_mm_area = GETINGE_ECMO_SIDE_LENGTH_MM**2
-    mm2_per_p2 = square_mm_area / square_pixels_area
-
-    image = EcmoImage(
-        ecmo_id=ecmo_id,
-        filename=filename,
-        original_data=image_file.read(),
-        cropped_data=cropped.tobytes(),
-        width_px=image_data.width,
-        height_px=image_data.height,
-        mm2_per_p2=mm2_per_p2,
-    )
-    db.session.add(image)
-    db.session.commit()
-
-    image_data.close()
-    image_file.close()
-
-    img = Image.fromarray(cropped)
-    file_object = io.BytesIO()
-    img.save(file_object, "jpeg")
-    file_object.seek(0)
-
-    return jsonify(
-        {
-            "image_id": image.id,
-            "image": base64.b64encode(file_object.read()).decode("utf-8"),
-            "mime_type": "image/jpeg",  # TODO - support any image mime type uploaded
-        }
+    return (
+        jsonify(
+            EcmoImageSchema(
+                only=("id", "cropped", "mimetype", "current_annotation_session_id")
+            ).dump(ecmo_image)
+        ),
+        200,
     )
 
 
-@bp.route("/ecmo/<uuid:ecmo_id>/images/<uuid:image_id>/segmentations", methods=["POST"])
-def create_segmentation(ecmo_id: UUID, image_id: UUID):
-    # /payload = AnnotationSchema().load(request.json)
-    pass
+@bp.route(
+    "/ecmo/<uuid:ecmo_id>/images/<uuid:image_id>/annotation_sessions/<uuid:annotation_session_id>/segmentations",
+    methods=["POST"],
+)
+def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
+    payload = SegmentationSchema(only=("x1", "y1", "x2", "y2")).load(request.json)
+
+    ecmo = db.get_or_404(Ecmo, ecmo_id)
+    image = db.get_or_404(EcmoImage, image_id)
+    if image.ecmo_id != ecmo.id:
+        abort(404)
+    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
+    if annotation_session.image_id != image.id:
+        abort(404)
+
+    segmentation = create_segmentation(
+        ecmo_image=image,
+        annotation_session=annotation_session,
+        x1=payload["x1"],
+        y1=payload["y1"],
+        x2=payload["x2"],
+        y2=payload["y2"],
+    )
+
+    return jsonify(SegmentationSchema(only=("mask",)).dump(segmentation)), 201
 
 
 @bp.route("/health")

@@ -248,6 +248,8 @@ export default function Home() {
                               if (name.length === 0) {
                                 if (isPending) {
                                   setEcmoList(ecmoList.slice(1));
+                                } else {
+                                  setEditingEcmoId(null);
                                 }
                               } else if (isPending) {
                                 handleAddEcmo();
