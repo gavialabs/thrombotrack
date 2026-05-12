@@ -31,7 +31,11 @@ export default function RootLayout() {
               >
                 <Image
                   source={require("../assets/images/uw-logo.png")}
-                  style={{ width: 40, aspectRatio: 1280 / 865, marginRight: 40 }}
+                  style={{
+                    width: 40,
+                    aspectRatio: 1280 / 865,
+                    marginRight: 40,
+                  }}
                 />
                 <Text
                   style={{ fontSize: 16, textAlign: "center", fontWeight: 500 }}
@@ -77,6 +81,9 @@ export default function RootLayout() {
                   alignItems: "center",
                   justifyContent: "center",
                   marginRight: 10,
+                  // boxShadow:
+                  //   "0 0 40px -10px rgba(0,0,0,.3), 0 0 25px -15px rgba(0,0,0,.2);",
+                  boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
                 }}
               >
                 <Entypo name="check" size={18} color="white" />

@@ -1,8 +1,7 @@
 import React, { useEffect } from "react";
 import { useCanvas } from "./CanvasContext";
-import * as Device from "expo-device";
 
-export function Canvas() {
+export function Canvas({ scaleOffset }) {
   const { canvasRef, prepareCanvas, startDrawing, finishDrawing, draw } =
     useCanvas();
 
@@ -10,7 +9,17 @@ export function Canvas() {
     if (e.touches.length < 2) {
       e.preventDefault();
     }
+
+    if (e.touches.length === 2) {
+      e.preventDefault();
+    }
   };
+
+  // const handlePan = (e) => {
+  //   if (e.touches.length === 2) {
+
+  //   }
+  // };
 
   useEffect(() => {
     const currentCanvas = canvasRef.current;
@@ -18,13 +27,17 @@ export function Canvas() {
     currentCanvas.addEventListener("touchstart", handleTouchEvent, {
       passive: false,
     });
+    
+    // currentCanvas.addEventListener("touchmove", handlePan, {
+    //   passive: false,
+    // });
 
-    prepareCanvas();
+    prepareCanvas(scaleOffset);
 
     return () => {
       currentCanvas.removeEventListener("touchstart", handleTouchEvent);
     };
-  }, [canvasRef, prepareCanvas]);
+  }, [canvasRef, prepareCanvas, scaleOffset]);
 
   return (
     <canvas
@@ -35,7 +48,6 @@ export function Canvas() {
       onTouchEnd={finishDrawing}
       onTouchMove={(e) => {
         if (e.touches.length < 2) {
-          console.log("drawing");
           draw(e);
         }
       }}

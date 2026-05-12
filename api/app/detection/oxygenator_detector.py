@@ -2,7 +2,7 @@ import cv2
 import math
 import numpy as np
 from enum import Enum
-from PIL.Image import Image
+from PIL import Image
 from sklearn.cluster import KMeans
 from typing import Sequence
 
@@ -86,7 +86,7 @@ def rescale_points(points, scaling_factor):
 
 
 class OxygenatorDetector:
-    def __init__(self, image: Image, oxygenator_type: OxygenatorType) -> None:
+    def __init__(self, image: Image.Image, oxygenator_type: OxygenatorType) -> None:
         self.image = np.array(image, dtype=np.uint8)
         self.oxygenator_type = oxygenator_type
 
@@ -158,7 +158,7 @@ class OxygenatorDetector:
             return points[min_dists >= tol * expected_dist]
 
         candidates = np.asarray(
-            find_pos_neg_intersections_in_image(lines, self.img.shaoe)
+            find_pos_neg_intersections_in_image(lines, self.img.shape)
         )
 
         # cluster the candidate corners into four groups at left, top, right, and bottom of image
@@ -240,14 +240,14 @@ class OxygenatorDetector:
         )
         return cv2.warpPerspective(self.image, M, (side_length, side_length))
 
-    def detect_oxygenator(self) -> tuple[np.ndarray, float]:
+    def detect_oxygenator(self) -> tuple[Image.Image, float]:
         if self.oxygenator_type == OxygenatorType.GETINGE:
             lines = self.find_lines()
             corners = self.find_corners(lines)
             warped = self.warp_perspective(corners)
 
-            square_pixels_area = warped.shape[0] * warped.shape[1]
+            pixel_area = warped.shape[0] * warped.shape[1]
             square_mm_area = GETINGE_ECMO_SIDE_LENGTH_MM**2
-            mm2_per_pixel = square_mm_area / square_pixels_area
+            mm2_per_pixel = square_mm_area / pixel_area
 
-        return warped, mm2_per_pixel
+        return Image.fromarray(warped), mm2_per_pixel
