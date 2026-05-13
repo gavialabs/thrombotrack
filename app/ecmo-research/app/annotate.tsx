@@ -23,7 +23,7 @@ export default function Annotate() {
   const { ecmoId } = useGlobalSearchParams<{ ecmoId: string }>();
   const [loading, setLoading] = useState(true);
   const [image, setImage] = useState(null);
-  const [masks, setMasks] = useState<ImageBitmap[]>([]);
+  const [mask, setMask] = useState<ImageBitmap>(null);
   const [scaleOffset, setScaleOffset] = useState(0);
 
   const imageIdRef = useRef(null);
@@ -91,7 +91,7 @@ export default function Annotate() {
           (r) => r.blob(),
         );
         const bitmap = await createImageBitmap(blob);
-        setMasks((prev) => [...prev, bitmap]);
+        setMask(bitmap);
       })
       .catch((error) => {
         console.error(error);
@@ -195,7 +195,7 @@ export default function Annotate() {
       <CanvasProvider
         ecmoImage={image}
         detectThrombus={detectThrombus}
-        masks={masks}
+        mask={mask}
       >
         <Canvas scaleOffset={scaleOffset} />
       </CanvasProvider>

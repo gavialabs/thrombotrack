@@ -6,7 +6,7 @@ export const CanvasProvider = ({
   children,
   ecmoImage,
   detectThrombus,
-  masks,
+  mask,
 }) => {
   const [isDrawing, setIsDrawing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -62,21 +62,23 @@ export const CanvasProvider = ({
 
     scaleRef.current = scale + scaleOffset;
 
-    console.log(`drawing with scale ${scale + scaleOffset}`);
+    // console.log(`drawing with scale ${scale + scaleOffset}`);
 
     // CSS size controls how big it LOOKS
     canvas.style.width = `${canvas.width * scale}px`;
     canvas.style.height = `${canvas.height * scale}px`;
 
     ctx.drawImage(originalImage, 0, 0);
-    masks.forEach((bitmap) => {
+
+    // draw current mask
+    if (mask !== null) {
       const offscreen = new OffscreenCanvas(canvas.width, canvas.height);
       const offCtx = offscreen.getContext("2d");
       if (offCtx === null) {
         return;
       }
 
-      offCtx.drawImage(bitmap, 0, 0);
+      offCtx.drawImage(mask, 0, 0);
 
       const maskData = offCtx.getImageData(
         0,
@@ -89,24 +91,18 @@ export const CanvasProvider = ({
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       const data = imageData.data;
 
-      const r = 100;
-      const g = 149;
-      const b = 237;
-      const a = 1.0;
-
       // Only color pixels where the mask is non-zero
       for (let i = 0; i < maskData.length; i += 4) {
         if (maskData[i] > 0) {
           // check the red channel of the mask
-          data[i + 0] = r;
-          data[i + 1] = g;
-          data[i + 2] = b;
-          data[i + 3] = a;
+          data[i + 0] = 100;
+          data[i + 1] = 149;
+          data[i + 2] = 237;
         }
       }
 
       ctx.putImageData(imageData, 0, 0);
-    });
+    }
 
     // context.scale(2, 2);
     ctx.lineCap = "round";
@@ -192,6 +188,7 @@ export const CanvasProvider = ({
     // call endpoint
     // on response, clear canvas and reload image (this might clear it anyway)
     detectThrombus(x1, y1, x2, y2);
+    path.current = new Set();
   };
 
   const draw = ({ nativeEvent }) => {

@@ -16,7 +16,7 @@ from sqlalchemy import func
 from werkzeug.utils import secure_filename
 from . import db
 from .models import Ecmo, Image as EcmoImage, AnnotationSession
-from .schemas import EcmoSchema, EcmoImageSchema, SegmentationSchema
+from .schemas import EcmoSchema, EcmoImageSchema, SegmentationSchema, AnnotationSessionSchema
 from .services import create_image, create_segmentation
 
 # from .services import crop_diamond_oxygenator
@@ -65,6 +65,7 @@ def create_ecmo():
     return (
         jsonify(
             {
+                "id": ecmo.id,
                 "name": name,
             }
         ),
@@ -141,7 +142,7 @@ def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
     if annotation_session.image_id != image.id:
         abort(404)
 
-    segmentation = create_segmentation(
+    create_segmentation(
         ecmo_image=image,
         annotation_session=annotation_session,
         x1=payload["x1"],
@@ -150,7 +151,8 @@ def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
         y2=payload["y2"],
     )
 
-    return jsonify(SegmentationSchema(only=("mask",)).dump(segmentation)), 201
+    # annotation_session has had its mask updated to include the latest segmentation
+    return jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)), 201
 
 
 @bp.route("/health")

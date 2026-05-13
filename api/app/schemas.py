@@ -2,7 +2,7 @@ from flask import current_app as app
 import base64
 from marshmallow import fields
 from . import ma
-from .models import Ecmo, Image, Segmentation
+from .models import Ecmo, Image, AnnotationSession, Segmentation
 
 
 class Base64Field(fields.Field):
@@ -27,6 +27,12 @@ class EcmoImageSchema(ma.SQLAlchemyAutoSchema):
         model = Image
 
     cropped = Base64Field()
+
+class AnnotationSessionSchema(ma.SQLAlchemyAutoSchema):
+    class Meta:
+        model = AnnotationSession
+    
+    mask = Base64Field()
 
 class SegmentationSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
