@@ -76,7 +76,7 @@ def create_image(ecmo_id: UUID, image_file: FileStorage):
 
 
 def create_annotation_session(image: EcmoImage) -> None:
-    mask = np.zeros((image.width_cropped, image.height_cropped), dtype=np.uint8)
+    mask = np.zeros((image.width_cropped, image.height_cropped), dtype=np.bool)
 
     mask_file = io.BytesIO()
     Image.fromarray(mask).save(mask_file, "jpeg")
@@ -98,7 +98,7 @@ def create_segmentation(
     y2: int,
 ) -> None:
     image = np.asarray(Image.open(io.BytesIO(ecmo_image.cropped)))
-    session_mask = np.asarray(Image.open(io.BytesIO(annotation_session.mask)))
+    session_mask = np.array(Image.open(io.BytesIO(annotation_session.mask)), dtype=np.bool)
 
     segmentor = Segmentor(image, session_mask)
     thrombus_mask = segmentor.segment(x1, y1, x2, y2, ThrombusType.CLOT)

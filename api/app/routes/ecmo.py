@@ -45,7 +45,7 @@ def get_ecmos():
     return EcmoSchema(many=True).dump(ecmos)
 
 
-@ecmo_bp.route("/", methods=["POST"])
+@ecmo_bp.route("", methods=["POST"])
 def create_ecmo():
     name = request.json.get("name")
 

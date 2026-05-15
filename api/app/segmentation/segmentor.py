@@ -104,6 +104,6 @@ class Segmentor:
         opening = cv2.morphologyEx(clustered, cv2.MORPH_OPEN, self.kernel)
         closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, self.kernel)
 
-        self.mask[y1:y2,x1:x2] = closing
+        self.mask[y1:y2,x1:x2] = closing.astype(np.bool)
 
         return closing

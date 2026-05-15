@@ -12,43 +12,23 @@ export const CanvasProvider = ({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
   const originalImageRef = useRef<ImageBitmap | null>(null);
-
-  const scaleRef = useRef(1);
+  const actualScale = useRef(1);
+  const scale = useRef(1);
+  const originX = useRef(0);
+  const originY = useRef(0);
 
   const path = useRef(new Set<[number, number]>());
 
   //defining width & height of the canvas
-  const prepareCanvas = async (scaleOffset) => {
+  const prepareCanvas = async () => {
     const canvas = canvasRef.current;
     if (canvas === null) {
       return;
     }
-    // canvas.width = window.innerWidth * 2;
-    // canvas.height = window.innerHeight * 2;
-    // canvas.style.width = `${window.innerWidth}px`;
-    // canvas.style.height = `${window.innerHeight}px`;
-
-    // defining the thickness and colour of our brush
     const ctx = canvas.getContext("2d");
     if (ctx === null) {
       return;
     }
-
-    // const image = new Image();
-    // const src = URL.createObjectURL(ecmoImage);
-    // TODO - URL.revokeObjectURL(url)
-    // image.src = src;
-    // image.onload = () => {
-    //   context.drawImage(
-    //     image,
-    //     0,
-    //     0,
-    //     // image.width,
-    //     // image.height,
-    //     window.innerWidth,
-    //     (image.height / image.width) * window.innerWidth,
-    //   );
-    // };
 
     const originalImage = await createImageBitmap(ecmoImage);
     originalImageRef.current = originalImage;
@@ -58,15 +38,11 @@ export const CanvasProvider = ({
 
     const scaleX = window.innerWidth / canvas.width;
     const scaleY = window.innerHeight / canvas.height;
-    const scale = Math.min(scaleX, scaleY, 1) + scaleOffset; // never scale UP beyond 1:1
-
-    scaleRef.current = scale + scaleOffset;
-
-    // console.log(`drawing with scale ${scale + scaleOffset}`);
+    actualScale.current = Math.min(scaleX, scaleY, 1);
 
     // CSS size controls how big it LOOKS
-    canvas.style.width = `${canvas.width * scale}px`;
-    canvas.style.height = `${canvas.height * scale}px`;
+    canvas.style.width = `${canvas.width * actualScale.current}px`;
+    canvas.style.height = `${canvas.height * actualScale.current}px`;
 
     ctx.drawImage(originalImage, 0, 0);
 
@@ -93,15 +69,15 @@ export const CanvasProvider = ({
 
       // Only color pixels where the mask is non-zero
       for (let i = 0; i < maskData.length; i += 4) {
-        if (maskData[i] > 0) {
-          // check the red channel of the mask
-          data[i + 0] = 100;
+        if (maskData[i] === 255) {
+          data[i] = 100;
           data[i + 1] = 149;
           data[i + 2] = 237;
         }
       }
 
       ctx.putImageData(imageData, 0, 0);
+      // ctx.drawImage(offscreen, 0, 0);
     }
 
     // context.scale(2, 2);
@@ -114,7 +90,7 @@ export const CanvasProvider = ({
   };
 
   const startDrawing = ({ nativeEvent }) => {
-    const { clientX, clientY } = nativeEvent;
+    const { layerX, layerY } = nativeEvent;
 
     const canvas = canvasRef.current;
     const ctx = contextRef.current;
@@ -122,15 +98,16 @@ export const CanvasProvider = ({
       return;
     }
 
-    const rect = canvas.getBoundingClientRect();
+    // const rect = canvas.getBoundingClientRect();
 
     // CSS pixel position within the canvas element
-    const cssX = clientX - rect.left;
-    const cssY = clientY - rect.top;
+    // const cssX = layerX - rect.left;
+    // const cssY = layerY - rect.top;
 
-    // Convert to image pixel coordinates
-    const imageX = cssX / scaleRef.current;
-    const imageY = cssY / scaleRef.current;
+    const imageX =
+      (layerX - originX.current) / actualScale.current / scale.current;
+    const imageY =
+      (layerY - originY.current) / actualScale.current / scale.current;
 
     // imageX, imageY are now in the original image's coordinate space
     // — safe to send directly to the backend
@@ -149,6 +126,34 @@ export const CanvasProvider = ({
     ctx.moveTo(imageX, imageY);
 
     setIsDrawing(true);
+    path.current.add([imageX, imageY]);
+  };
+
+  const draw = ({ nativeEvent }) => {
+    const canvas = canvasRef.current;
+    const ctx = contextRef.current;
+
+    if (!isDrawing || canvas === null || ctx === null) {
+      return;
+    }
+
+    const { layerX, layerY } = nativeEvent;
+
+    // const rect = canvas.getBoundingClientRect();
+
+    // // CSS pixel position within the canvas element
+    // const cssX = layerX - rect.left;
+    // const cssY = layerY - rect.top;
+
+    // Convert to image pixel coordinates
+    const imageX =
+      (layerX - originX.current) / actualScale.current / scale.current;
+    const imageY =
+      (layerY - originY.current) / actualScale.current / scale.current;
+
+    ctx.lineTo(imageX, imageY);
+    ctx.stroke();
+
     path.current.add([imageX, imageY]);
   };
 
@@ -191,32 +196,6 @@ export const CanvasProvider = ({
     path.current = new Set();
   };
 
-  const draw = ({ nativeEvent }) => {
-    const canvas = canvasRef.current;
-    const ctx = contextRef.current;
-
-    if (!isDrawing || canvas === null || ctx === null) {
-      return;
-    }
-
-    const { clientX, clientY } = nativeEvent;
-
-    const rect = canvas.getBoundingClientRect();
-
-    // CSS pixel position within the canvas element
-    const cssX = clientX - rect.left;
-    const cssY = clientY - rect.top;
-
-    // Convert to image pixel coordinates
-    const imageX = cssX / scaleRef.current;
-    const imageY = cssY / scaleRef.current;
-
-    ctx.lineTo(imageX, imageY);
-    ctx.stroke();
-
-    path.current.add([imageX, imageY]);
-  };
-
   //once the canvas is cleared it return to the default colour
   const clearCanvas = () => {
     const canvas = canvasRef.current;
@@ -235,6 +214,9 @@ export const CanvasProvider = ({
         finishDrawing,
         clearCanvas,
         draw,
+        scale,
+        originX,
+        originY,
       }}
     >
       {children}
