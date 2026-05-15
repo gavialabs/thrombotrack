@@ -15,16 +15,16 @@ import matplotlib.pyplot as plt
 from sklearn.cluster import KMeans
 from skimage.morphology import skeletonize
 
-from .utils.img_utils import *
-from .detection.oxygenator_detector import OxygenatorDetector, OxygenatorType
-from .segmentation.segmentor import Segmentor, ThrombusType
-from .models import (
+from ..utils.img_utils import *
+from ..detection.oxygenator_detector import OxygenatorDetector, OxygenatorType
+from ..segmentation.segmentor import Segmentor, ThrombusType
+from ..models import (
     Image as EcmoImage,
     AnnotationSession,
     Segmentation,
     PromptType,
 )
-from . import db
+from .. import db
 
 # from .RANSAC.RANSAC import (
 #     LinearRANSAC,
