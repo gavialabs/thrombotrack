@@ -22,6 +22,7 @@ class AnnotationSession(db.Model):
     image_id: Mapped[UUID] = mapped_column(ForeignKey("images.id"))
     started_at: Mapped[datetime] = mapped_column(default=datetime.now)
     ended_at: Mapped[datetime | None]
+    mask: Mapped[bytes] = mapped_column(db.LargeBinary)
     # user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
 
 

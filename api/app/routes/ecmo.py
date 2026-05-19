@@ -14,10 +14,15 @@ from PIL import Image
 from uuid import UUID, uuid4
 from sqlalchemy import func
 from werkzeug.utils import secure_filename
-from . import db
-from .models import Ecmo, Image as EcmoImage, AnnotationSession
-from .schemas import EcmoSchema, EcmoImageSchema, SegmentationSchema
-from .services import create_image, create_segmentation
+from .. import db
+from ..models import Ecmo, Image as EcmoImage, AnnotationSession
+from ..schemas import (
+    EcmoSchema,
+    EcmoImageSchema,
+    SegmentationSchema,
+    AnnotationSessionSchema,
+)
+from ..services.ecmo import create_image, create_segmentation
 
 # from .services import crop_diamond_oxygenator
 
@@ -29,16 +34,10 @@ def allowed_file(filename):
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
 
-bp = Blueprint("main", __name__, url_prefix="/api")
+ecmo_bp = Blueprint("ecmo", __name__, url_prefix="/ecmos")
 
 
-@bp.route("/")
-def index():
-    """Home page with template information"""
-    return render_template("index.html")
-
-
-@bp.route("/ecmos")
+@ecmo_bp.route("/", methods=["GET"])
 def get_ecmos():
     ecmos = db.session.execute(
         db.select(Ecmo).order_by(func.lower(Ecmo.name))
@@ -46,11 +45,11 @@ def get_ecmos():
     return EcmoSchema(many=True).dump(ecmos)
 
 
-@bp.route("/ecmo", methods=["POST"])
+@ecmo_bp.route("", methods=["POST"])
 def create_ecmo():
     name = request.json.get("name")
 
-    existing_ecmo: Ecmo | None = db.session.execute(
+    existing_ecmo = db.session.execute(
         db.select(Ecmo).filter_by(name=name)
     ).scalar_one_or_none()
 
@@ -65,6 +64,7 @@ def create_ecmo():
     return (
         jsonify(
             {
+                "id": ecmo.id,
                 "name": name,
             }
         ),
@@ -72,7 +72,7 @@ def create_ecmo():
     )
 
 
-@bp.route("/ecmo/<uuid:ecmo_id>", methods=["PATCH"])
+@ecmo_bp.route("/<uuid:ecmo_id>", methods=["PATCH"])
 def edit_ecmo(ecmo_id: UUID):
     name = request.json.get("name")
 
@@ -87,7 +87,7 @@ def edit_ecmo(ecmo_id: UUID):
     return jsonify({}), 200
 
 
-@bp.route("/ecmo/<uuid:ecmo_id>", methods=["DELETE"])
+@ecmo_bp.route("/<uuid:ecmo_id>", methods=["DELETE"])
 def delete_ecmo(ecmo_id: UUID):
     ecmo = db.get_or_404(Ecmo, ecmo_id)
 
@@ -97,7 +97,7 @@ def delete_ecmo(ecmo_id: UUID):
     return jsonify({}), 200
 
 
-@bp.route("/ecmo/<uuid:ecmo_id>/images", methods=["POST"])
+@ecmo_bp.route("/<uuid:ecmo_id>/images", methods=["POST"])
 def upload_image(ecmo_id: UUID):
     ecmo = db.get_or_404(Ecmo, ecmo_id)
 
@@ -126,8 +126,8 @@ def upload_image(ecmo_id: UUID):
     )
 
 
-@bp.route(
-    "/ecmo/<uuid:ecmo_id>/images/<uuid:image_id>/annotation_sessions/<uuid:annotation_session_id>/segmentations",
+@ecmo_bp.route(
+    "/<uuid:ecmo_id>/images/<uuid:image_id>/annotation_sessions/<uuid:annotation_session_id>/segmentations",
     methods=["POST"],
 )
 def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
@@ -141,7 +141,7 @@ def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
     if annotation_session.image_id != image.id:
         abort(404)
 
-    segmentation = create_segmentation(
+    create_segmentation(
         ecmo_image=image,
         annotation_session=annotation_session,
         x1=payload["x1"],
@@ -150,10 +150,14 @@ def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
         y2=payload["y2"],
     )
 
-    return jsonify(SegmentationSchema(only=("mask",)).dump(segmentation)), 201
+    # annotation_session has had its mask updated to include the latest segmentation
+    return (
+        jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)),
+        201,
+    )
 
 
-@bp.route("/health")
+@ecmo_bp.route("/health")
 def health_check():
     """Health check endpoint"""
     try:

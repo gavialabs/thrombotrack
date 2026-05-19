@@ -23,7 +23,7 @@ export default function Annotate() {
   const { ecmoId } = useGlobalSearchParams<{ ecmoId: string }>();
   const [loading, setLoading] = useState(true);
   const [image, setImage] = useState(null);
-  const [masks, setMasks] = useState<ImageBitmap[]>([]);
+  const [mask, setMask] = useState<ImageBitmap>(null);
   const [scaleOffset, setScaleOffset] = useState(0);
 
   const imageIdRef = useRef(null);
@@ -38,7 +38,7 @@ export default function Annotate() {
       const formData = new FormData();
       formData.append("image", file);
 
-      fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmo/${ecmoId}/images`, {
+      fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images`, {
         method: "POST",
         body: formData,
       })
@@ -76,7 +76,7 @@ export default function Annotate() {
     y2?: number,
   ): void => {
     fetch(
-      `${process.env.EXPO_PUBLIC_API_URL}/api/ecmo/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/segmentations`,
+      `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/segmentations`,
       {
         method: "POST",
         body: JSON.stringify({ x1, y1, x2, y2 }),
@@ -91,7 +91,7 @@ export default function Annotate() {
           (r) => r.blob(),
         );
         const bitmap = await createImageBitmap(blob);
-        setMasks((prev) => [...prev, bitmap]);
+        setMask(bitmap);
       })
       .catch((error) => {
         console.error(error);
@@ -121,6 +121,36 @@ export default function Annotate() {
 
   return (
     <View style={{ height: "100%", display: "flex", justifyContent: "center" }}>
+      <View
+        style={{
+          position: "absolute",
+          bottom: 15,
+          right: 15,
+          backgroundColor: "white",
+          borderRadius: 5,
+          gap: 15,
+          paddingVertical: 10,
+          paddingHorizontal: 5,
+          boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+        }}
+      >
+        <TouchableOpacity onPress={() => setScaleOffset((prev) => prev + 0.05)}>
+          <MaterialCommunityIcons name="plus" size={18} color="black" />
+        </TouchableOpacity>
+        <View style={{ height: 1, backgroundColor: "rgb(209, 209, 214)" }} />
+        <TouchableOpacity onPress={() => setScaleOffset((prev) => prev - 0.05)}>
+          <MaterialCommunityIcons name="minus" size={18} color="black" />
+        </TouchableOpacity>
+      </View>
+
+      <CanvasProvider
+        ecmoImage={image}
+        detectThrombus={detectThrombus}
+        mask={mask}
+      >
+        <Canvas scaleOffset={scaleOffset} />
+      </CanvasProvider>
+
       <View
         style={{
           position: "absolute",
@@ -169,36 +199,6 @@ export default function Annotate() {
         <MaterialCommunityIcons name="redo" size={18} color="black" />
         <MaterialCommunityIcons name="trash-can" size={18} color="black" />
       </View>
-
-      <View
-        style={{
-          position: "absolute",
-          bottom: 15,
-          right: 15,
-          backgroundColor: "white",
-          borderRadius: 5,
-          gap: 15,
-          paddingVertical: 10,
-          paddingHorizontal: 5,
-          boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
-        }}
-      >
-        <TouchableOpacity onPress={() => setScaleOffset((prev) => prev + 0.05)}>
-          <MaterialCommunityIcons name="plus" size={18} color="black" />
-        </TouchableOpacity>
-        <View style={{ height: 1, backgroundColor: "rgb(209, 209, 214)" }} />
-        <TouchableOpacity onPress={() => setScaleOffset((prev) => prev - 0.05)}>
-          <MaterialCommunityIcons name="minus" size={18} color="black" />
-        </TouchableOpacity>
-      </View>
-
-      <CanvasProvider
-        ecmoImage={image}
-        detectThrombus={detectThrombus}
-        masks={masks}
-      >
-        <Canvas scaleOffset={scaleOffset} />
-      </CanvasProvider>
     </View>
   );
 }

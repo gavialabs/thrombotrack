@@ -80,7 +80,7 @@ def cluster_image(
 class Segmentor:
     def __init__(self, img: np.ndarray, mask: np.ndarray | None = None) -> None:
         self.img = img
-        self.mask = mask if mask else np.zeros(img.shape[:2], dtype=np.bool)
+        self.mask = mask.copy() if mask is not None else np.zeros(img.shape[:2], dtype=np.bool)
         self.kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
 
     def segment(
@@ -90,7 +90,7 @@ class Segmentor:
         x2: int | None,
         y2: int | None,
         thrombus_type: ThrombusType,
-    ) -> int:
+    ) -> np.ndarray:
         window = self.img[y1:y2, x1:x2]
         if x2 and y2:
             clustered = cluster_image(
@@ -104,6 +104,6 @@ class Segmentor:
         opening = cv2.morphologyEx(clustered, cv2.MORPH_OPEN, self.kernel)
         closing = cv2.morphologyEx(opening, cv2.MORPH_CLOSE, self.kernel)
 
-        self.mask[y1:y2,x1:x2] = closing
+        self.mask[y1:y2,x1:x2] = closing.astype(np.bool)
 
-        return int(np.count_nonzero(closing))
+        return closing

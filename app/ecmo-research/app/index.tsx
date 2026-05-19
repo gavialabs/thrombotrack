@@ -58,7 +58,7 @@ export default function Home() {
   }, [ecmoList, search]);
 
   const handleAddEcmo = (): void => {
-    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmo`, {
+    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos`, {
       method: "POST",
       body: JSON.stringify({
         name,
@@ -82,7 +82,7 @@ export default function Home() {
   };
 
   const handleEditEcmo = (ecmoId: string): void => {
-    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmo/${ecmoId}`, {
+    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}`, {
       method: "PATCH",
       body: JSON.stringify({
         name,
@@ -115,7 +115,7 @@ export default function Home() {
   
   
   const handleDeleteEcmo = (ecmoId: string): void => {
-    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmo/${ecmoId}`, {
+    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}`, {
       method: "DELETE",
     })
       .then((response) => response.json())

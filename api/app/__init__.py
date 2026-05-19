@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, Blueprint
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
@@ -31,7 +31,15 @@ def create_app():
     # app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key")
 
     db.init_app(app)
-    from .routes import bp
+    
+    from .routes.ecmo import ecmo_bp
+    from .routes.auth import auth_bp
+
+    bp = Blueprint("main", __name__, url_prefix="/api")
+    
+    bp.register_blueprint(ecmo_bp)
+    bp.register_blueprint(auth_bp)
+
     app.register_blueprint(bp)
 
     return app
