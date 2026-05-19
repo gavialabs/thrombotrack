@@ -27,6 +27,34 @@ def upgrade():
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("name"),
     )
+    # op.create_table(
+    #     "image",
+    #     sa.Column("id", sa.Uuid(), nullable=False),
+    #     sa.Column("ecmo_id", sa.Uuid(), nullable=False),
+    #     sa.Column("file_key", sa.String(), nullable=False),
+    #     sa.Column("width_px", sa.Integer(), nullable=False),
+    #     sa.Column("height_px", sa.Integer(), nullable=False),
+    #     sa.Column("width_mm", sa.Float(), nullable=False),
+    #     sa.Column("height_mm", sa.Float(), nullable=False),
+    #     sa.Column("created_at", sa.DateTime(), nullable=False),
+    #     sa.ForeignKeyConstraint(
+    #         ["ecmo_id"],
+    #         ["ecmo.id"],
+    #     ),
+    #     sa.PrimaryKeyConstraint("id"),
+    # )
+    # op.create_table(
+    #     "annotation",
+    #     sa.Column("id", sa.Uuid(), nullable=False),
+    #     sa.Column("image_id", sa.Uuid(), nullable=False),
+    #     sa.Column("area_px", sa.Float(), nullable=False),
+    #     sa.Column("created_at", sa.DateTime(), nullable=False),
+    #     sa.ForeignKeyConstraint(
+    #         ["image_id"],
+    #         ["image.id"],
+    #     ),
+    #     sa.PrimaryKeyConstraint("id"),
+    # )
     # ### end Alembic commands ###
 
 
