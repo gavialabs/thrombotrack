@@ -147,8 +147,8 @@ export function Canvas() {
   return (
     <canvas
       onMouseDown={startDrawing}
-      onMouseUp={finishDrawing}
       onMouseMove={draw}
+      onMouseUp={finishDrawing}
       // onTouchStart={startDrawing}
       // onTouchEnd={finishDrawing}
       // onTouchMove={(e) => {

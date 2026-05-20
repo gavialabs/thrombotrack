@@ -10,6 +10,7 @@ import {
   Button,
   ActivityIndicator,
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
 import { useContext, useEffect, useState } from "react";
 import Entypo from "@expo/vector-icons/Entypo";
@@ -81,12 +82,10 @@ export default function Home() {
       });
   };
 
-  const handleEditEcmo = (ecmoId: string): void => {
+  const handleEditEcmo = (ecmoId: string, payload): void => {
     fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}`, {
       method: "PATCH",
-      body: JSON.stringify({
-        name,
-      }),
+      body: JSON.stringify(payload),
       headers: {
         "Content-Type": "application/json",
       },
@@ -98,7 +97,7 @@ export default function Home() {
             if (ecmo.id === ecmoId) {
               return {
                 ...ecmo,
-                name,
+                ...payload,
               };
             } else {
               return ecmo;
@@ -112,8 +111,7 @@ export default function Home() {
         console.error(error);
       });
   };
-  
-  
+
   const handleDeleteEcmo = (ecmoId: string): void => {
     fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}`, {
       method: "DELETE",
@@ -230,64 +228,77 @@ export default function Home() {
                         flex: 1,
                       }}
                     >
-                      <View
-                        style={{
-                          display: "flex",
-                          flexDirection: "row",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        {isPending || isEditing ? (
-                          <TextInput
-                            defaultValue={item.name}
-                            placeholder="Enter name..."
-                            placeholderTextColor="lightgray"
-                            autoFocus
-                            onBlur={() => {
-                              if (name.length === 0) {
-                                if (isPending) {
-                                  setEcmoList(ecmoList.slice(1));
+                      <View>
+                        <View
+                          style={{
+                            display: "flex",
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                          }}
+                        >
+                          {isPending || isEditing ? (
+                            <TextInput
+                              defaultValue={item.name}
+                              placeholder="Enter name..."
+                              placeholderTextColor="lightgray"
+                              autoFocus
+                              onBlur={() => {
+                                if (name.length === 0) {
+                                  if (isPending) {
+                                    setEcmoList(ecmoList.slice(1));
+                                  } else {
+                                    setEditingEcmoId(null);
+                                  }
+                                } else if (isPending) {
+                                  handleAddEcmo();
                                 } else {
-                                  setEditingEcmoId(null);
+                                  handleEditEcmo(item.id, { name });
                                 }
-                              } else if (isPending) {
-                                handleAddEcmo();
-                              } else {
-                                handleEditEcmo(item.id);
-                              }
-                            }}
-                            onChangeText={(newValue) => setName(newValue)}
-                            style={{
-                              borderRadius: 8,
-                              padding: 5,
-                              width: "100%",
-                              fontWeight: 500,
-                            }}
-                          />
-                        ) : (
-                          <Text style={{ fontWeight: 500 }}>
-                            {item.name}
-                            <TouchableOpacity
-                              onPress={() => setEditingEcmoId(item.id)}
-                            >
-                              <MaterialCommunityIcons
-                                name="pencil"
-                                size={15}
-                                color="gray"
-                                style={{ marginLeft: 5 }}
-                              />
-                            </TouchableOpacity>
-                          </Text>
-                        )}
-                        <TouchableOpacity onPress={() => handleDeleteEcmo(item.id)}>
-                          <MaterialCommunityIcons
-                            name="trash-can"
-                            size={20}
-                            color="rgba(255, 56, 60, 0.7)"
-                          />
-                        </TouchableOpacity>
-                        {/* <Text style={{ color: "gray" }}>Last updated 7:03pm</Text> */}
+                              }}
+                              onChangeText={(newValue) => setName(newValue)}
+                              style={{
+                                borderRadius: 8,
+                                padding: 5,
+                                width: "100%",
+                                fontWeight: 500,
+                              }}
+                            />
+                          ) : (
+                            <Text style={{ fontWeight: 500 }}>
+                              {item.name}
+                              <TouchableOpacity
+                                onPress={() => setEditingEcmoId(item.id)}
+                              >
+                                <MaterialCommunityIcons
+                                  name="pencil"
+                                  size={15}
+                                  color="gray"
+                                  style={{ marginLeft: 5 }}
+                                />
+                              </TouchableOpacity>
+                            </Text>
+                          )}
+                          <TouchableOpacity
+                            onPress={() => handleDeleteEcmo(item.id)}
+                          >
+                            <MaterialCommunityIcons
+                              name="trash-can"
+                              size={20}
+                              color="rgba(255, 56, 60, 0.7)"
+                            />
+                          </TouchableOpacity>
+                          {/* <Text style={{ color: "gray" }}>Last updated 7:03pm</Text> */}
+                        </View>
+                        <Picker
+                          onValueChange={(itemValue) =>
+                            handleEditEcmo(item.id, { type: itemValue })
+                          }
+                          style={{ marginTop: 10 }}
+                        >
+                          <Picker.Item label="Getinge" value="getinge" />
+                          <Picker.Item label="Nautilus" value="nautilus" />
+                        </Picker>
                       </View>
                       {!isPending ? (
                         <View

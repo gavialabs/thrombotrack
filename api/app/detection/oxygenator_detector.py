@@ -1,3 +1,4 @@
+from flask import current_app as app
 import cv2
 import math
 import numpy as np
@@ -7,9 +8,11 @@ from sklearn.cluster import KMeans
 from typing import Sequence
 
 from .linear_equation import LinearEquation
+from .RANSAC import CircularRANSAC, CircularRANSACFit
 from ..utils.img_utils import resize_with_scaling_factor, make_greyscale
 
 GETINGE_ECMO_SIDE_LENGTH_MM = 88
+NAUTILUS_DIAMETER_MM = 87.5
 
 
 class OxygenatorType(Enum):
@@ -87,19 +90,19 @@ def rescale_points(points, scaling_factor):
 
 class OxygenatorDetector:
     def __init__(self, image: Image.Image, oxygenator_type: OxygenatorType) -> None:
-        self.image = np.array(image, dtype=np.uint8)
+        self.original_image = np.array(image, dtype=np.uint8)
         self.oxygenator_type = oxygenator_type
 
         self.preprocess()
 
     def preprocess(self) -> None:
         if self.oxygenator_type == OxygenatorType.GETINGE:
-            img, scaling_factor = resize_with_scaling_factor(self.image, 1024)
+            img, scaling_factor = resize_with_scaling_factor(self.original_image, 1024)
             img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
             img = cv2.GaussianBlur(img, (5, 5), cv2.BORDER_DEFAULT)
         else:
-            img, scaling_factor = resize_with_scaling_factor(self.image, 512)
+            img, scaling_factor = resize_with_scaling_factor(self.original_image, 512)
             img = make_greyscale(img, [0, 0.5, 0.5])
 
         self.img = img
@@ -131,17 +134,6 @@ class OxygenatorDetector:
                 linear_equations.append(LinearEquation.from_points((x1, y1), (x2, y2)))
 
         return linear_equations
-
-    def find_circles(self):
-        edges = cv2.Canny(self.img, 300, 500)
-        fits = CircularRANSAC(edges, verbose=True, every=1000).fit(
-            3,
-            6000,
-            threshold=1,
-            num_inliers=240,
-            criterion=circular_criterion,
-            hook=eliminate_similar_by_inliers,
-        )
 
     def find_corners(self, lines: list[LinearEquation]) -> np.ndarray:
         def remove_outliers(
@@ -238,7 +230,35 @@ class OxygenatorDetector:
             corners,
             output_points,
         )
-        return cv2.warpPerspective(self.image, M, (side_length, side_length))
+        return cv2.warpPerspective(self.original_image, M, (side_length, side_length))
+
+    def find_circle(self) -> np.ndarray:
+        def rescale_circle(circle, scaling_factor):
+            cx, cy = circle.center
+            r = circle.radius
+            new_center = rescale_points([[cx, cy]], scaling_factor)[0]
+            cx, cy = new_center
+            r = 1 / scaling_factor * r
+            conv = lambda x: int(round(x, 0))
+            return CircularRANSACFit((conv(cx), conv(cy)), conv(r))
+
+        def crop_to_circle(img, circle, buffer):
+            cx, cy = circle.center
+            r = circle.radius + buffer
+            img = img[cy - r : cy + r + 1, cx - r : cx + r + 1]
+            return img
+
+        edges = cv2.Canny(self.img, 300, 500)
+        fits = CircularRANSAC(edges, verbose=True, every=1000).fit(
+            3,
+            6000,
+            threshold=1,
+            num_inliers=240,
+        )
+        smallest = sorted(fits, key=lambda x: x[0].radius)[0]
+        smallest = rescale_circle(smallest[0], self.scaling_factor)
+
+        return crop_to_circle(self.original_image, smallest, 0)
 
     def detect_oxygenator(self) -> tuple[Image.Image, float]:
         if self.oxygenator_type == OxygenatorType.GETINGE:
@@ -246,8 +266,14 @@ class OxygenatorDetector:
             corners = self.find_corners(lines)
             warped = self.warp_perspective(corners)
 
-            pixel_area = warped.shape[0] * warped.shape[1]
-            square_mm_area = GETINGE_ECMO_SIDE_LENGTH_MM**2
-            mm2_per_pixel = square_mm_area / pixel_area
+            area_pixels = warped.shape[0] * warped.shape[1]
+            area_mm2 = GETINGE_ECMO_SIDE_LENGTH_MM**2
+        else:
+            warped = self.find_circle()
+
+            area_pixels = np.pi * ((warped.shape[0] / 2) ** 2)
+            area_mm2 = np.pi * ((NAUTILUS_DIAMETER_MM / 2) ** 2)
+
+        mm2_per_pixel = area_mm2 / area_pixels
 
         return Image.fromarray(warped), mm2_per_pixel

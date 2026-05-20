@@ -14,6 +14,11 @@ import { useEffect, useRef, useState } from "react";
 import { Redirect, useGlobalSearchParams, useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
+enum AnnotationType {
+  CLOT = "clot",
+  FIBRIN = "fibrin",
+}
+
 /**
  * The annotation page for circling/tapping on thrombi. Only compatible on web since it uses <canvas> component.
  */
@@ -23,8 +28,10 @@ export default function Annotate() {
   const { ecmoId } = useGlobalSearchParams<{ ecmoId: string }>();
   const [loading, setLoading] = useState(true);
   const [image, setImage] = useState(null);
-  const [mask, setMask] = useState<ImageBitmap>(null);
-  const [scaleOffset, setScaleOffset] = useState(0);
+  const [mask, setMask] = useState<ImageBitmap | null>(null);
+  const [annotationType, setAnnotationType] = useState<AnnotationType>(
+    AnnotationType.CLOT,
+  );
 
   const imageIdRef = useRef(null);
   const annotationSessionIdRef = useRef(null);
@@ -98,6 +105,59 @@ export default function Annotate() {
       });
   };
 
+  const doUndo = () => {
+    fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/undo`,
+      {
+        method: "POST",
+      },
+    )
+      .then((response) => response.json())
+      .then(async (json) => {
+        const blob = await fetch(`data:image/png;base64,${json.mask}`).then(
+          (r) => r.blob(),
+        );
+        const bitmap = await createImageBitmap(blob);
+        setMask(bitmap);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  };
+
+  const doRedo = () => {
+    fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/redo`,
+      {
+        method: "POST",
+      },
+    )
+      .then((response) => response.json())
+      .then(async (json) => {
+        const blob = await fetch(`data:image/png;base64,${json.mask}`).then(
+          (r) => r.blob(),
+        );
+        const bitmap = await createImageBitmap(blob);
+        setMask(bitmap);
+      })
+      .catch((error) => {
+        console.error(error);
+      });
+  };
+
+  const doClear = () => {
+    fetch(
+      `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/clear`,
+      {
+        method: "POST",
+      },
+    )
+      .then(() => setMask(null))
+      .catch((error) => {
+        console.error(error);
+      });
+  };
+
   if (state.file === null) {
     return <Redirect href="/" />;
   }
@@ -121,49 +181,23 @@ export default function Annotate() {
 
   return (
     <View style={{ height: "100%", display: "flex", justifyContent: "center" }}>
-      <View
-        style={{
-          position: "absolute",
-          bottom: 15,
-          right: 15,
-          backgroundColor: "white",
-          borderRadius: 5,
-          gap: 15,
-          paddingVertical: 10,
-          paddingHorizontal: 5,
-          boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
-        }}
-      >
-        <TouchableOpacity onPress={() => setScaleOffset((prev) => prev + 0.05)}>
-          <MaterialCommunityIcons name="plus" size={18} color="black" />
-        </TouchableOpacity>
-        <View style={{ height: 1, backgroundColor: "rgb(209, 209, 214)" }} />
-        <TouchableOpacity onPress={() => setScaleOffset((prev) => prev - 0.05)}>
-          <MaterialCommunityIcons name="minus" size={18} color="black" />
-        </TouchableOpacity>
-      </View>
-
       <CanvasProvider
         ecmoImage={image}
         detectThrombus={detectThrombus}
         mask={mask}
       >
-        <Canvas scaleOffset={scaleOffset} />
+        <Canvas />
       </CanvasProvider>
 
       <View
         style={{
           position: "absolute",
-          top: 15,
-          backgroundColor: "white",
+          top: 10,
           display: "flex",
+          alignItems: "center",
           flexDirection: "row",
-          // paddingVertical: 5,
-          // paddingHorizontal: 20,
-          gap: 30,
-          borderRadius: 20,
+          gap: 10,
           alignSelf: "center",
-          boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
         }}
       >
         <View
@@ -171,33 +205,105 @@ export default function Annotate() {
             display: "flex",
             flex: 1,
             backgroundColor: "rgb(229,229,234)",
+            boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
             flexDirection: "row",
-            gap: 30,
-            // paddingHorizontal: 15,
-            borderRadius: 15,
-            // paddingVertical: 5,
+            borderRadius: 20,
             marginVertical: 3,
             marginLeft: 3,
             alignItems: "center",
+            borderColor: "white",
+            borderWidth: 3,
           }}
         >
-          <View
+          <TouchableOpacity
             style={{
-              backgroundColor: "white",
+              backgroundColor:
+                annotationType === AnnotationType.CLOT ? "white" : undefined,
               borderRadius: 15,
               paddingHorizontal: 15,
               paddingVertical: 5,
               marginVertical: 3,
               marginLeft: 3,
+              transitionDuration: "0.5s",
+              transitionProperty: "background-color",
             }}
+            onPress={() => setAnnotationType(AnnotationType.CLOT)}
           >
-            <Text style={{ fontWeight: 500 }}>Clot</Text>
-          </View>
-          <Text>Fibrin</Text>
+            <Text
+              style={{
+                fontWeight:
+                  annotationType === AnnotationType.CLOT ? 500 : undefined,
+                transitionDuration: "0.5s",
+                transitionProperty: "font-weight",
+              }}
+            >
+              Clot
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={{
+              backgroundColor:
+                annotationType === AnnotationType.FIBRIN ? "white" : undefined,
+              borderRadius: 15,
+              paddingHorizontal: 15,
+              paddingVertical: 5,
+              marginVertical: 3,
+              marginRight: 3,
+              transitionDuration: "0.5s",
+              transitionProperty: "background-color",
+            }}
+            onPress={() => setAnnotationType(AnnotationType.FIBRIN)}
+          >
+            <Text
+              style={{
+                fontWeight:
+                  annotationType === AnnotationType.FIBRIN ? 500 : undefined,
+                transitionDuration: "0.5s",
+                transitionProperty: "font-weight",
+              }}
+            >
+              Fibrin
+            </Text>
+          </TouchableOpacity>
         </View>
-        <MaterialCommunityIcons name="undo" size={18} color="black" />
-        <MaterialCommunityIcons name="redo" size={18} color="black" />
-        <MaterialCommunityIcons name="trash-can" size={18} color="black" />
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: "white",
+            borderRadius: 20,
+            padding: 10,
+            boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+          }}
+          onPress={doUndo}
+        >
+          <MaterialCommunityIcons name="undo" size={18} color="black" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: "white",
+            borderRadius: 20,
+            padding: 10,
+            boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+          }}
+          onPress={doRedo}
+        >
+          <MaterialCommunityIcons name="redo" size={18} color="black" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{
+            backgroundColor: "white",
+            borderRadius: 20,
+            padding: 10,
+            boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+          }}
+          onPress={doClear}
+        >
+          <MaterialCommunityIcons
+            name="trash-can"
+            size={18}
+            color="rgba(255, 56, 60, 0.7)"
+          />
+        </TouchableOpacity>
       </View>
     </View>
   );

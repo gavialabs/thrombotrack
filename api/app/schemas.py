@@ -1,8 +1,10 @@
 from flask import current_app as app
 import base64
 from marshmallow import fields
+from marshmallow.validate import OneOf
+
 from . import ma
-from .models import Ecmo, Image, AnnotationSession, Segmentation
+from .models import Ecmo, EcmoType, Image, AnnotationSession, Segmentation
 
 
 class Base64Field(fields.Field):
@@ -20,6 +22,9 @@ class Base64Field(fields.Field):
 class EcmoSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Ecmo
+    
+    # need to manually override enum fields, the auto-schema doesn't like them
+    type = ma.String(validate=OneOf([EcmoType.GETINGE, EcmoType.NAUTILUS]))
 
 
 class EcmoImageSchema(ma.SQLAlchemyAutoSchema):

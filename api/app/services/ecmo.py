@@ -19,6 +19,7 @@ from ..utils.img_utils import *
 from ..detection.oxygenator_detector import OxygenatorDetector, OxygenatorType
 from ..segmentation.segmentor import Segmentor, ThrombusType
 from ..models import (
+    Ecmo,
     Image as EcmoImage,
     AnnotationSession,
     Segmentation,
@@ -35,11 +36,11 @@ from .. import db
 # from .fitting_objects.linear_equation import LinearEquation
 
 
-def create_image(ecmo_id: UUID, image_file: FileStorage):
+def create_image(ecmo: Ecmo, image_file: FileStorage):
     image = Image.open(image_file.stream)
 
     cropped_image, mm2_per_pixel = OxygenatorDetector(
-        image, OxygenatorType.GETINGE
+        image, ecmo.type
     ).detect_oxygenator()
 
     cropped_image_file = io.BytesIO()
@@ -49,7 +50,7 @@ def create_image(ecmo_id: UUID, image_file: FileStorage):
     cropped_image_data = cropped_image_file.read()
 
     ecmo_image = EcmoImage(
-        ecmo_id=ecmo_id,
+        ecmo_id=ecmo.id,
         filename=f"{uuid4().hex}_{secure_filename(image_file.filename)}",
         mimetype=image_file.mimetype,
         original=image_file.read(),
@@ -82,10 +83,7 @@ def create_annotation_session(image: EcmoImage) -> None:
     Image.fromarray(mask).save(mask_file, "jpeg")
     mask_file.seek(0)
 
-    annotation_session = AnnotationSession(
-        image_id=image.id,
-        mask=mask_file.read()
-    )
+    annotation_session = AnnotationSession(image_id=image.id, mask=mask_file.read())
     db.session.add(annotation_session)
 
 
@@ -98,7 +96,9 @@ def create_segmentation(
     y2: int,
 ) -> None:
     image = np.asarray(Image.open(io.BytesIO(ecmo_image.cropped)))
-    session_mask = np.array(Image.open(io.BytesIO(annotation_session.mask)), dtype=np.bool)
+    session_mask = np.array(
+        Image.open(io.BytesIO(annotation_session.mask)), dtype=np.bool
+    )
 
     segmentor = Segmentor(image, session_mask)
     thrombus_mask = segmentor.segment(x1, y1, x2, y2, ThrombusType.CLOT)
@@ -106,7 +106,7 @@ def create_segmentation(
     thrombus_mask_file = io.BytesIO()
     Image.fromarray(thrombus_mask).save(thrombus_mask_file, "jpeg")
     thrombus_mask_file.seek(0)
-    
+
     session_mask_file = io.BytesIO()
     Image.fromarray(segmentor.mask).save(session_mask_file, "jpeg")
     session_mask_file.seek(0)

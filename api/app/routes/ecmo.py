@@ -74,13 +74,17 @@ def create_ecmo():
 
 @ecmo_bp.route("/<uuid:ecmo_id>", methods=["PATCH"])
 def edit_ecmo(ecmo_id: UUID):
-    name = request.json.get("name")
-
-    if not name:
-        return jsonify({}), 400
+    payload = EcmoSchema(partial=True).dump(request.json)
 
     ecmo = db.get_or_404(Ecmo, ecmo_id)
-    ecmo.name = name
+
+    name = payload.get("name")
+    ecmo_type = payload.get("type")
+
+    if name:
+        ecmo.name = name
+    if ecmo_type:
+        ecmo.type = ecmo_type.upper()
 
     db.session.commit()
 
@@ -114,7 +118,7 @@ def upload_image(ecmo_id: UUID):
     if not allowed_file(image_file.filename):
         return {"error": "File type not allowed"}, 400
 
-    ecmo_image = create_image(ecmo_id, image_file)
+    ecmo_image = create_image(ecmo, image_file)
 
     return (
         jsonify(

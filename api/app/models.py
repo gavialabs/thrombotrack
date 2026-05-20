@@ -9,9 +9,14 @@ from . import db
 #     pass
 
 
+class EcmoType(enum.Enum):
+    GETINGE = "getinge"
+    NAUTILUS = "nautilus"
+
 class Ecmo(db.Model):
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(unique=True)
+    type: Mapped[EcmoType] = mapped_column(Enum(EcmoType), default=EcmoType.NAUTILUS)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
 
 

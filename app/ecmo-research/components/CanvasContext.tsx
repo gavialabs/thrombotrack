@@ -19,7 +19,6 @@ export const CanvasProvider = ({
 
   const path = useRef(new Set<[number, number]>());
 
-  //defining width & height of the canvas
   const prepareCanvas = async () => {
     const canvas = canvasRef.current;
     if (canvas === null) {
