@@ -4,6 +4,7 @@ import { useCanvas } from "./CanvasContext";
 export function Canvas() {
   const {
     canvasRef,
+    contextRef,
     prepareCanvas,
     startDrawing,
     finishDrawing,
@@ -19,6 +20,13 @@ export function Canvas() {
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
+  };
+
+  const getPinchMidpoint = (touches) => {
+    return {
+      x: (touches[0].clientX + touches[1].clientX) / 2,
+      y: (touches[0].clientY + touches[1].clientY) / 2,
+    };
   };
 
   useEffect(() => {
@@ -43,17 +51,22 @@ export function Canvas() {
       }
       scale.current = newScale;
 
-      applyTransform();
+      contextRef.current.translate(originX.current, originY.current);
+      contextRef.current.scale(newScale, newScale);
+      // contextRef.current.scale(newScale, newScale);
+
+      // applyTransform();
     };
 
-    const handleTouchEvent = (e) => {
+    const handleTouchStart = (e) => {
+      console.log(e);
       e.preventDefault();
 
       if (e.touches.length === 2) {
         // Start of pinch — record initial distance and midpoint
         lastPinchDistance.current = getPinchDistance(e.touches);
-        // lastPinchMidpoint.current = getPinchMidpoint(e.touches);
-        lastPinchMidpoint.current = {x: e.pageX, y: e.pageY};
+        lastPinchMidpoint.current = getPinchMidpoint(e.touches);
+        // lastPinchMidpoint.current = { x: e.pageX, y: e.pageY };
       } else {
         startDrawing(e);
       }
@@ -63,16 +76,16 @@ export function Canvas() {
       e.preventDefault();
 
       if (e.touches.length === 2) {
-        // const newDistance = getPinchDistance(e.touches);
-        // const newMidpoint = getPinchMidpoint(e.touches);
+        const newDistance = getPinchDistance(e.touches);
+        const newMidpoint = getPinchMidpoint(e.touches);
 
         // Scale proportionally to the change in pinch distance
-        // const newScale =
-        //   scale.current * (newDistance / lastPinchDistance.current);
-        console.log(scale.current);
-        console.log(e.scale);
-        const newScale = scale.current * e.scale;
-        console.log(newScale);
+        const newScale =
+          scale.current * (newDistance / lastPinchDistance.current);
+        // console.log(scale.current);
+        // console.log(e.scale);
+        // const newScale = scale.current * e.scale;
+        // console.log(newScale);
 
         // Zoom centered on the midpoint between the two fingers
         // zoomAt(newScale, newMidpoint.x, newMidpoint.y);
@@ -102,7 +115,8 @@ export function Canvas() {
 
       // TODO - event has a scale attribute, could we use this instead of calculating pinch distance?
 
-      if (e.changedTouches.length < 2) {
+      // if (e.changedTouches.length < 2) {
+      if (e.touches.length < 2) {
         finishDrawing(e);
       }
 
@@ -114,7 +128,7 @@ export function Canvas() {
 
     const currentCanvas = canvasRef.current;
 
-    currentCanvas.addEventListener("touchstart", handleTouchEvent, {
+    currentCanvas.addEventListener("touchstart", handleTouchStart, {
       passive: false,
     });
     currentCanvas.addEventListener("touchmove", handleTouchMove, {
@@ -127,7 +141,7 @@ export function Canvas() {
     prepareCanvas();
 
     return () => {
-      currentCanvas.removeEventListener("touchstart", handleTouchEvent);
+      currentCanvas.removeEventListener("touchstart", handleTouchStart);
       currentCanvas.removeEventListener("touchmove", handleTouchMove);
       currentCanvas.removeEventListener("touchend", handleTouchEnd);
     };
@@ -149,13 +163,6 @@ export function Canvas() {
       onMouseDown={startDrawing}
       onMouseMove={draw}
       onMouseUp={finishDrawing}
-      // onTouchStart={startDrawing}
-      // onTouchEnd={finishDrawing}
-      // onTouchMove={(e) => {
-      //   if (e.touches.length < 2) {
-      //     draw(e);
-      //   }
-      // }}
       ref={canvasRef}
     />
   );

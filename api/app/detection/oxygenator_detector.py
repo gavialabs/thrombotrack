@@ -89,20 +89,20 @@ def rescale_points(points, scaling_factor):
 
 
 class OxygenatorDetector:
-    def __init__(self, image: Image.Image, oxygenator_type: OxygenatorType) -> None:
-        self.original_image = np.array(image, dtype=np.uint8)
+    def __init__(self, original_img: np.ndarray, oxygenator_type: OxygenatorType) -> None:
+        self.original_img = original_img
         self.oxygenator_type = oxygenator_type
 
         self.preprocess()
 
     def preprocess(self) -> None:
         if self.oxygenator_type == OxygenatorType.GETINGE:
-            img, scaling_factor = resize_with_scaling_factor(self.original_image, 1024)
+            img, scaling_factor = resize_with_scaling_factor(self.original_img, 1024)
             img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
             img = cv2.GaussianBlur(img, (5, 5), cv2.BORDER_DEFAULT)
         else:
-            img, scaling_factor = resize_with_scaling_factor(self.original_image, 512)
+            img, scaling_factor = resize_with_scaling_factor(self.original_img, 512)
             img = make_greyscale(img, [0, 0.5, 0.5])
 
         self.img = img
@@ -230,7 +230,7 @@ class OxygenatorDetector:
             corners,
             output_points,
         )
-        return cv2.warpPerspective(self.original_image, M, (side_length, side_length))
+        return cv2.warpPerspective(self.original_img, M, (side_length, side_length))
 
     def find_circle(self) -> np.ndarray:
         def rescale_circle(circle, scaling_factor):
@@ -249,7 +249,7 @@ class OxygenatorDetector:
             return img
 
         edges = cv2.Canny(self.img, 300, 500)
-        fits = CircularRANSAC(edges, verbose=True, every=1000).fit(
+        fits = CircularRANSAC(edges).fit(
             3,
             6000,
             threshold=1,
@@ -258,16 +258,16 @@ class OxygenatorDetector:
         smallest = sorted(fits, key=lambda x: x[0].radius)[0]
         smallest = rescale_circle(smallest[0], self.scaling_factor)
 
-        return crop_to_circle(self.original_image, smallest, 0)
+        return crop_to_circle(self.original_img, smallest, 0)
 
-    def detect_oxygenator(self) -> tuple[Image.Image, float]:
+    def detect_oxygenator(self) -> tuple[np.ndarray, float]:
         if self.oxygenator_type == OxygenatorType.GETINGE:
             lines = self.find_lines()
             corners = self.find_corners(lines)
             warped = self.warp_perspective(corners)
 
             area_pixels = warped.shape[0] * warped.shape[1]
-            area_mm2 = GETINGE_ECMO_SIDE_LENGTH_MM**2
+            area_mm2 = GETINGE_ECMO_SIDE_LENGTH_MM**2.0
         else:
             warped = self.find_circle()
 
@@ -276,4 +276,4 @@ class OxygenatorDetector:
 
         mm2_per_pixel = area_mm2 / area_pixels
 
-        return Image.fromarray(warped), mm2_per_pixel
+        return warped, mm2_per_pixel

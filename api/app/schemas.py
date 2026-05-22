@@ -1,10 +1,10 @@
 from flask import current_app as app
 import base64
-from marshmallow import fields
-from marshmallow.validate import OneOf
+from marshmallow import fields, pre_dump
+from marshmallow.validate import Length, OneOf, Range
 
 from . import ma
-from .models import Ecmo, EcmoType, Image, AnnotationSession, Segmentation
+from .models import Ecmo, EcmoType, Image, AnnotationSession, Segmentation, ThrombusType
 
 
 class Base64Field(fields.Field):
@@ -22,9 +22,21 @@ class Base64Field(fields.Field):
 class EcmoSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Ecmo
-    
+
     # need to manually override enum fields, the auto-schema doesn't like them
-    type = ma.String(validate=OneOf([EcmoType.GETINGE, EcmoType.NAUTILUS]))
+    type = ma.String(validate=OneOf([EcmoType.GETINGE.value, EcmoType.NAUTILUS.value]))
+    thumbnail = Base64Field()
+    total_annotated_area = ma.Float()
+
+    @pre_dump
+    def combine_ecmo_and_latest_image(self, data: tuple[Ecmo, bytes, float], **kwargs) -> dict:
+        return {
+            "id": data[0].id,
+            "name": data[0].name,
+            "type": data[0].type.value,
+            "thumbnail": data[1],
+            "total_annotated_area": data[2],
+        }
 
 
 class EcmoImageSchema(ma.SQLAlchemyAutoSchema):
@@ -33,14 +45,21 @@ class EcmoImageSchema(ma.SQLAlchemyAutoSchema):
 
     cropped = Base64Field()
 
+
 class AnnotationSessionSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = AnnotationSession
-    
+
     mask = Base64Field()
+
 
 class SegmentationSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
         model = Segmentation
-    
+
     mask = Base64Field()
+    path = ma.List(
+        ma.List(ma.Integer(validate=Range(min=0)), validate=Length(equal=2)),
+        validate=Length(min=1),
+    )
+    thrombus_type = ma.String(validate=OneOf([ThrombusType.CLOT, ThrombusType.FIBRIN]))

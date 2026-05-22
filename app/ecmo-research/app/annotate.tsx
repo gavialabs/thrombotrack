@@ -7,14 +7,21 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
-import { CanvasProvider } from "../components/CanvasContext";
-import { Canvas } from "../components/Canvas";
+// import { CanvasProvider } from "../components/CanvasContext";
+// import { Canvas } from "../components/Canvas";
+import Canvas from "../components/NewCanvas";
 import { useStateContext } from "@/components/StateContext";
 import { useEffect, useRef, useState } from "react";
-import { Redirect, useGlobalSearchParams, useRouter } from "expo-router";
+import {
+  Redirect,
+  useGlobalSearchParams,
+  useNavigation,
+  useRouter,
+} from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import AnnotateHeader from "@/components/AnnotateHeader";
 
-enum AnnotationType {
+enum ThrombusType {
   CLOT = "clot",
   FIBRIN = "fibrin",
 }
@@ -24,13 +31,14 @@ enum AnnotationType {
  */
 export default function Annotate() {
   const { state, dispatch } = useStateContext();
+  const navigation = useNavigation();
   const router = useRouter();
   const { ecmoId } = useGlobalSearchParams<{ ecmoId: string }>();
   const [loading, setLoading] = useState(true);
-  const [image, setImage] = useState(null);
-  const [mask, setMask] = useState<ImageBitmap | null>(null);
-  const [annotationType, setAnnotationType] = useState<AnnotationType>(
-    AnnotationType.CLOT,
+  const [image, setImage] = useState<Blob | null>(null);
+  const [mask, setMask] = useState<Blob | null>(null);
+  const [thrombusType, setThrombusType] = useState<ThrombusType>(
+    ThrombusType.CLOT,
   );
 
   const imageIdRef = useRef(null);
@@ -39,6 +47,25 @@ export default function Annotate() {
   // useEffect(() => {
   //   return () => masks.forEach((bitmap) => bitmap.close());
   // }, [masks]);
+
+  useEffect(() => {
+    const doFinish = () => {
+      fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/end`,
+        {
+          method: "POST",
+        },
+      )
+        .then(() => router.push("/"))
+        .catch((error) => {
+          console.error(error);
+        });
+    };
+
+    navigation.setOptions({
+      header: () => <AnnotateHeader onFinish={doFinish} />,
+    });
+  }, [navigation, ecmoId, router]);
 
   useEffect(() => {
     const uploadImage = (file: File): void => {
@@ -68,25 +95,47 @@ export default function Annotate() {
         });
     };
 
+    if (ecmoId === undefined) {
+      return;
+    }
+
     if (state.file === null) {
-      window.alert("Selected image was not found, please try again");
+      // window.alert("Selected image was not found, please try again");
       return;
     }
 
     uploadImage(state.file);
-  }, [state.file, router, ecmoId]);
+  }, [state.file, router, ecmoId, dispatch]);
 
-  const detectThrombus = (
-    x1: number,
-    y1: number,
-    x2?: number,
-    y2?: number,
-  ): void => {
+  const annotateImage = (path: [number, number][]): void => {
+    if (path.length === 0) {
+      console.error("Tried to annotate image with no points in path");
+      return;
+    }
+
+    const distinctPath: [number, number][] = [];
+    path.forEach((point) => {
+      const intPoint: [number, number] = [
+        Math.trunc(point[0]),
+        Math.trunc(point[1]),
+      ];
+      if (
+        !distinctPath.some(
+          (point2) => point2[0] === intPoint[0] && point2[1] === intPoint[1],
+        )
+      ) {
+        distinctPath.push(intPoint);
+      }
+    });
+
     fetch(
       `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/segmentations`,
       {
         method: "POST",
-        body: JSON.stringify({ x1, y1, x2, y2 }),
+        body: JSON.stringify({
+          path: distinctPath,
+          thrombus_type: thrombusType,
+        }),
         headers: {
           "Content-Type": "application/json",
         },
@@ -97,8 +146,7 @@ export default function Annotate() {
         const blob = await fetch(`data:image/png;base64,${json.mask}`).then(
           (r) => r.blob(),
         );
-        const bitmap = await createImageBitmap(blob);
-        setMask(bitmap);
+        setMask(blob);
       })
       .catch((error) => {
         console.error(error);
@@ -181,14 +229,9 @@ export default function Annotate() {
 
   return (
     <View style={{ height: "100%", display: "flex", justifyContent: "center" }}>
-      <CanvasProvider
-        ecmoImage={image}
-        detectThrombus={detectThrombus}
-        mask={mask}
-      >
-        <Canvas />
-      </CanvasProvider>
+      <Canvas annotateImage={annotateImage} image={image} mask={mask} />
 
+      {/* toolbar-- must place after canvas so that it layers on top */}
       <View
         style={{
           position: "absolute",
@@ -218,7 +261,7 @@ export default function Annotate() {
           <TouchableOpacity
             style={{
               backgroundColor:
-                annotationType === AnnotationType.CLOT ? "white" : undefined,
+                thrombusType === ThrombusType.CLOT ? "white" : undefined,
               borderRadius: 15,
               paddingHorizontal: 15,
               paddingVertical: 5,
@@ -227,12 +270,12 @@ export default function Annotate() {
               transitionDuration: "0.5s",
               transitionProperty: "background-color",
             }}
-            onPress={() => setAnnotationType(AnnotationType.CLOT)}
+            onPress={() => setThrombusType(ThrombusType.CLOT)}
           >
             <Text
               style={{
                 fontWeight:
-                  annotationType === AnnotationType.CLOT ? 500 : undefined,
+                  thrombusType === ThrombusType.CLOT ? 500 : undefined,
                 transitionDuration: "0.5s",
                 transitionProperty: "font-weight",
               }}
@@ -243,7 +286,7 @@ export default function Annotate() {
           <TouchableOpacity
             style={{
               backgroundColor:
-                annotationType === AnnotationType.FIBRIN ? "white" : undefined,
+                thrombusType === ThrombusType.FIBRIN ? "white" : undefined,
               borderRadius: 15,
               paddingHorizontal: 15,
               paddingVertical: 5,
@@ -252,12 +295,12 @@ export default function Annotate() {
               transitionDuration: "0.5s",
               transitionProperty: "background-color",
             }}
-            onPress={() => setAnnotationType(AnnotationType.FIBRIN)}
+            onPress={() => setThrombusType(ThrombusType.FIBRIN)}
           >
             <Text
               style={{
                 fontWeight:
-                  annotationType === AnnotationType.FIBRIN ? 500 : undefined,
+                  thrombusType === ThrombusType.FIBRIN ? 500 : undefined,
                 transitionDuration: "0.5s",
                 transitionProperty: "font-weight",
               }}

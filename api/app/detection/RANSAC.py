@@ -136,7 +136,7 @@ class Sampler:
     def __getitem__(self, ind):
         return np.array(self.points[self.sampled_set[ind],:])
 
-def default_criterion(object, fits, points, threshold, num_inliers, num_objects=1):
+def default_criterion(object, fits, points, threshold, num_inliers, num_objects=None):
     """
     This function acts as a default criterion for picking which fitted objects to
     accept from the RANSAC fit.
@@ -243,14 +243,12 @@ def binary_array_to_xy(array):
 
 
 class CircularRANSAC:
-    def __init__(self, points, verbose=False, every=20):
+    def __init__(self, points):
         """
         Creates a RANSAC instance that acts on a set of points.
 
         Args:
             points: The set of points to fit a RANSAC object to.
-            verbose: Boolean, whether to print fit progress.
-            every: Integer to print verbose statement every number of interations.
         """
         if not isinstance(points, np.ndarray):
             try:
@@ -261,8 +259,6 @@ class CircularRANSAC:
                     f"numpy array, instead got: {e}"
                 )
         self.points = binary_array_to_xy(points)
-        self.verbose = verbose
-        self.every = every
 
     def fit(
         self,
@@ -270,7 +266,7 @@ class CircularRANSAC:
         num_samples,
         threshold,
         num_inliers,
-        criterion=None,
+        criterion=default_criterion,
         hook=eliminate_similar_by_inliers,
     ):
         """
@@ -295,18 +291,7 @@ class CircularRANSAC:
         """
 
         if num_points < CircularRANSACFit.min_num_points:
-            print(
-                "Fewer points than necessary to fit object were provided. "
-                f"Defaulting to {CircularRANSACFit.min_num_points} points."
-            )
             num_points = CircularRANSACFit.min_num_points
-
-        if criterion is None:
-            print(
-                "No criterion for choosing best fits provided. Defaulting "
-                "to choosing fit with the most inliers."
-            )
-            criterion = default_criterion
 
         sampler = Sampler(self.points, num_points, num_samples)
         fits = []

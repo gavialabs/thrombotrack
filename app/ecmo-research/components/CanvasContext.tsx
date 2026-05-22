@@ -191,7 +191,7 @@ export const CanvasProvider = ({
 
     // call endpoint
     // on response, clear canvas and reload image (this might clear it anyway)
-    detectThrombus(x1, y1, x2, y2);
+    // detectThrombus(x1, y1, x2, y2);
     path.current = new Set();
   };
 

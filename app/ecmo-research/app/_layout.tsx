@@ -5,6 +5,8 @@ import { createContext } from "react";
 import { TouchableOpacity, View, Text } from "react-native";
 import { Image } from "expo-image";
 
+import AnnotateHeader from "@/components/AnnotateHeader";
+
 export default function RootLayout() {
   const router = useRouter();
 
@@ -15,7 +17,7 @@ export default function RootLayout() {
           name="index"
           options={{
             title: "ECMO Thrombosis Tracker",
-            header: (props) => (
+            header: () => (
               <View
                 style={{
                   display: "flex",
@@ -53,42 +55,8 @@ export default function RootLayout() {
         <Stack.Screen
           name="annotate"
           options={{
-            headerStyle: { textAlign: "center" },
-            headerTitle: "Annotate Image",
-            headerLeft: () => (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "rgb(199, 199, 204)",
-                  height: 35,
-                  width: 35,
-                  borderRadius: 20,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginHorizontal: 10,
-                }}
-                onPress={() => router.back()}
-              >
-                <Entypo name="chevron-left" size={18} color="black" />
-              </TouchableOpacity>
-            ),
-            headerRight: () => (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: "rgb(0, 136, 255)",
-                  height: 35,
-                  width: 35,
-                  borderRadius: 20,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginRight: 10,
-                  // boxShadow:
-                  //   "0 0 40px -10px rgba(0,0,0,.3), 0 0 25px -15px rgba(0,0,0,.2);",
-                  boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Entypo name="check" size={18} color="white" />
-              </TouchableOpacity>
-            ),
+            title: "Annotate Image",
+            header: () => <AnnotateHeader />,
           }}
         />
       </Stack>

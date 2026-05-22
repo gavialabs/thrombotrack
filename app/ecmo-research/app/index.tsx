@@ -12,10 +12,11 @@ import {
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
 import * as ImagePicker from "expo-image-picker";
+import { Image } from "expo-image";
 import { useContext, useEffect, useState } from "react";
 import Entypo from "@expo/vector-icons/Entypo";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Ecmo } from "./types";
+import { Ecmo } from "../constants/types";
 import { useRouter } from "expo-router";
 import { useStateContext } from "@/components/StateContext";
 
@@ -24,13 +25,10 @@ export default function Home() {
   const [ecmoList, setEcmoList] = useState<Ecmo[]>([]);
   const [filteredEcmoList, setFilteredEcmoList] = useState<Ecmo[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isModalVisible, setModalVisible] = useState<boolean>(false);
   const [search, setSearch] = useState("");
   const [editingEcmoId, setEditingEcmoId] = useState(null);
-  const { state, dispatch } = useStateContext();
-
-  // current ecmo id that we are uploading an image for
-  const [currentEcmoId, setCurrentEcmoId] = useState<string | null>(null);
+  const { dispatch } = useStateContext();
+  const [thumbnails, setThumbnails] = useState({});
 
   const [name, setName] = useState<string>("");
 
@@ -39,6 +37,20 @@ export default function Home() {
       .then((response) => response.json())
       .then((json) => {
         setEcmoList(json);
+
+        json.forEach((data) => {
+          if (data.thumbnail !== null) {
+            fetch(`data:image/jpeg;base64,${data.thumbnail}`).then((r) =>
+              r.blob().then((blob) => {
+                setThumbnails((prev) => ({
+                  ...prev,
+                  [data.id]: URL.createObjectURL(blob),
+                }));
+              }),
+            );
+          }
+        });
+
         setIsLoading(false);
       })
       .catch((error) => {
@@ -205,22 +217,34 @@ export default function Home() {
                       gap: 10,
                     }}
                   >
-                    <View
-                      style={{
-                        height: 100,
-                        width: 100,
-                        backgroundColor: "gray",
-                        borderRadius: 15,
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
-                      }}
-                    >
-                      {!isPending ? (
-                        <Entypo name="camera" size={24} color="white" />
-                      ) : null}
-                    </View>
+                    {Object.keys(thumbnails).includes(item.id) ? (
+                      <Image
+                        source={thumbnails[item.id]}
+                        style={{
+                          height: 100,
+                          width: 100,
+                          borderRadius: 50,
+                          boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+                        }}
+                      />
+                    ) : (
+                      <View
+                        style={{
+                          height: 100,
+                          width: 100,
+                          backgroundColor: "gray",
+                          borderRadius: 15,
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+                        }}
+                      >
+                        {!isPending ? (
+                          <Entypo name="camera" size={24} color="white" />
+                        ) : null}
+                      </View>
+                    )}
                     <View
                       style={{
                         display: "flex",
@@ -294,11 +318,26 @@ export default function Home() {
                           onValueChange={(itemValue) =>
                             handleEditEcmo(item.id, { type: itemValue })
                           }
+                          selectedValue={item.type}
                           style={{ marginTop: 10 }}
                         >
                           <Picker.Item label="Getinge" value="getinge" />
                           <Picker.Item label="Nautilus" value="nautilus" />
                         </Picker>
+
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            alignItems: "flex-start",
+                          }}
+                        >
+                          <Text style={{ fontSize: 20, lineHeight: 30 }}>
+                            {item.total_annotated_area?.toFixed(2) ?? 0} mm
+                          </Text>
+                          <Text style={{ fontSize: 11, lineHeight: 18 }}>
+                            2
+                          </Text>
+                        </View>
                       </View>
                       {!isPending ? (
                         <View

@@ -1,3 +1,4 @@
+import datetime
 import base64
 import io
 import os
@@ -13,6 +14,7 @@ from flask import (
 from PIL import Image
 from uuid import UUID, uuid4
 from sqlalchemy import func
+from sqlalchemy.orm import aliased
 from werkzeug.utils import secure_filename
 from .. import db
 from ..models import Ecmo, Image as EcmoImage, AnnotationSession
@@ -23,6 +25,7 @@ from ..schemas import (
     AnnotationSessionSchema,
 )
 from ..services.ecmo import create_image, create_segmentation
+from ..dto import AnnotateImagePayload
 
 # from .services import crop_diamond_oxygenator
 
@@ -37,12 +40,35 @@ def allowed_file(filename):
 ecmo_bp = Blueprint("ecmo", __name__, url_prefix="/ecmos")
 
 
-@ecmo_bp.route("/", methods=["GET"])
+@ecmo_bp.route("", methods=["GET"])
 def get_ecmos():
-    ecmos = db.session.execute(
-        db.select(Ecmo).order_by(func.lower(Ecmo.name))
-    ).scalars()
-    return EcmoSchema(many=True).dump(ecmos)
+    latest_image_time = (
+        db.select(
+            EcmoImage.ecmo_id,
+            func.max(EcmoImage.created_at).label("max_created_at")
+        )
+        .group_by(EcmoImage.ecmo_id)
+        .subquery()
+    )
+
+    latest_image = aliased(EcmoImage)
+
+    stmt = (
+        db.select(Ecmo, latest_image.thumbnail, latest_image.total_annotated_area)
+        .outerjoin(
+            latest_image_time,
+            latest_image_time.c.ecmo_id == Ecmo.id
+        )
+        .outerjoin(
+            latest_image,
+            (latest_image.ecmo_id == Ecmo.id) &
+            (latest_image.created_at == latest_image_time.c.max_created_at)
+        )
+        .order_by(func.lower(Ecmo.name))
+    )
+    results = db.session.execute(stmt)
+
+    return EcmoSchema(many=True).dump(results)
 
 
 @ecmo_bp.route("", methods=["POST"])
@@ -105,8 +131,6 @@ def delete_ecmo(ecmo_id: UUID):
 def upload_image(ecmo_id: UUID):
     ecmo = db.get_or_404(Ecmo, ecmo_id)
 
-    # TODO - determine if this is a Getinge or Medtronic ECMO
-
     if "image" not in request.files:
         return {"error": "No file part"}, 400
 
@@ -135,7 +159,7 @@ def upload_image(ecmo_id: UUID):
     methods=["POST"],
 )
 def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
-    payload = SegmentationSchema(only=("x1", "y1", "x2", "y2")).load(request.json)
+    payload: AnnotateImagePayload = SegmentationSchema(only=("path", "thrombus_type")).load(request.json)
 
     ecmo = db.get_or_404(Ecmo, ecmo_id)
     image = db.get_or_404(EcmoImage, image_id)
@@ -145,20 +169,37 @@ def annotate_image(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
     if annotation_session.image_id != image.id:
         abort(404)
 
-    create_segmentation(
+    new_mask = create_segmentation(
         ecmo_image=image,
         annotation_session=annotation_session,
-        x1=payload["x1"],
-        y1=payload["y1"],
-        x2=payload["x2"],
-        y2=payload["y2"],
+        path=payload["path"],
+        thrombus_type=payload["thrombus_type"]
     )
 
     # annotation_session has had its mask updated to include the latest segmentation
     return (
-        jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)),
+        jsonify(AnnotationSessionSchema(only=("mask",)).dump({ "mask": new_mask })),
         201,
     )
+
+
+@ecmo_bp.route(
+    "/<uuid:ecmo_id>/images/<uuid:image_id>/annotation_sessions/<uuid:annotation_session_id>/end",
+    methods=["POST"],
+)
+def end_annotation_session(ecmo_id: UUID, image_id: UUID, annotation_session_id: UUID):
+    ecmo = db.get_or_404(Ecmo, ecmo_id)
+    image = db.get_or_404(EcmoImage, image_id)
+    if image.ecmo_id != ecmo.id:
+        abort(404)
+    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
+    if annotation_session.image_id != image.id:
+        abort(404)
+
+    annotation_session.ended_at = datetime.datetime.now()
+    db.session.commit()
+
+    return jsonify({}), 201
 
 
 @ecmo_bp.route("/health")
