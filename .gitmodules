@@ -1,0 +1,3 @@
+[submodule "gavialabs_iac_uw_medicine"]
+	path = gavialabs_iac_uw_medicine
+	url = git@github.com:gavialabs/gavialabs_iac_uw_medicine.git
