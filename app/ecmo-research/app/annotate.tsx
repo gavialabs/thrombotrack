@@ -21,9 +21,10 @@ import {
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import AnnotateHeader from "@/components/AnnotateHeader";
 
-enum ThrombusType {
+enum AnnotationType {
   CLOT = "clot",
   FIBRIN = "fibrin",
+  ERASE = "erase",
 }
 
 /**
@@ -34,12 +35,14 @@ export default function Annotate() {
   const navigation = useNavigation();
   const router = useRouter();
   const { ecmoId } = useGlobalSearchParams<{ ecmoId: string }>();
-  const [loading, setLoading] = useState(true);
-  const [image, setImage] = useState<Blob | null>(null);
-  const [mask, setMask] = useState<Blob | null>(null);
-  const [thrombusType, setThrombusType] = useState<ThrombusType>(
-    ThrombusType.CLOT,
+  const [loadingImage, setLoadingImage] = useState(true);
+  const [image, setImage] = useState<ImageBitmap | null>(null);
+  const [mask, setMask] = useState<ImageBitmap | null>(null);
+  const [thrombusType, setAnnotationType] = useState<AnnotationType>(
+    AnnotationType.CLOT,
   );
+  const [loadingMask, setLoadingMask] = useState(false);
+  const [hideMask, setHideMask] = useState(false);
 
   const imageIdRef = useRef(null);
   const annotationSessionIdRef = useRef(null);
@@ -84,9 +87,10 @@ export default function Annotate() {
           const blob = await fetch(
             `data:${json.mimetype};base64,${json.cropped}`,
           ).then((r) => r.blob());
+          const bitmap = await createImageBitmap(blob);
 
-          setImage(blob);
-          setLoading(false);
+          setImage(bitmap);
+          setLoadingImage(false);
         })
         .catch((error) => {
           console.error(error);
@@ -113,6 +117,7 @@ export default function Annotate() {
       return;
     }
 
+    setLoadingMask(true);
     const distinctPath: [number, number][] = [];
     path.forEach((point) => {
       const intPoint: [number, number] = [
@@ -146,7 +151,9 @@ export default function Annotate() {
         const blob = await fetch(`data:image/png;base64,${json.mask}`).then(
           (r) => r.blob(),
         );
-        setMask(blob);
+        const bitmap = await createImageBitmap(blob);
+        setMask(bitmap);
+        setLoadingMask(false);
       })
       .catch((error) => {
         console.error(error);
@@ -154,6 +161,7 @@ export default function Annotate() {
   };
 
   const doUndo = () => {
+    setLoadingMask(true);
     fetch(
       `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/undo`,
       {
@@ -167,6 +175,7 @@ export default function Annotate() {
         );
         const bitmap = await createImageBitmap(blob);
         setMask(bitmap);
+        setLoadingMask(false);
       })
       .catch((error) => {
         console.error(error);
@@ -174,6 +183,7 @@ export default function Annotate() {
   };
 
   const doRedo = () => {
+    setLoadingMask(true);
     fetch(
       `${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/redo`,
       {
@@ -187,6 +197,7 @@ export default function Annotate() {
         );
         const bitmap = await createImageBitmap(blob);
         setMask(bitmap);
+        setLoadingMask(false);
       })
       .catch((error) => {
         console.error(error);
@@ -210,7 +221,7 @@ export default function Annotate() {
     return <Redirect href="/" />;
   }
 
-  if (loading || image === null) {
+  if (loadingImage || image === null) {
     return (
       <View
         style={{
@@ -228,8 +239,20 @@ export default function Annotate() {
   }
 
   return (
-    <View style={{ height: "100%", display: "flex", justifyContent: "center" }}>
-      <Canvas annotateImage={annotateImage} image={image} mask={mask} />
+    <View
+      style={{
+        height: "100%",
+        display: "flex",
+        justifyContent: "center",
+        overflow: "hidden",
+      }}
+    >
+      <Canvas
+        annotateImage={annotateImage}
+        image={image}
+        mask={mask}
+        hideMask={hideMask}
+      />
 
       {/* toolbar-- must place after canvas so that it layers on top */}
       <View
@@ -243,6 +266,25 @@ export default function Annotate() {
           alignSelf: "center",
         }}
       >
+        <TouchableOpacity
+          style={{
+            backgroundColor: hideMask ? "rgb(97, 85, 245)" : "white",
+            borderRadius: 20,
+            padding: 10,
+            boxShadow: hideMask
+              ? "0px 0px 10px 0px rgba(97, 85, 245, 0.1)"
+              : "0px 0px 10px 0px rgba(0, 0, 0, 0.1)",
+          }}
+          disabled={loadingMask}
+          onPress={() => setHideMask(!hideMask)}
+        >
+          <MaterialCommunityIcons
+            name="eye-off"
+            size={18}
+            color={!hideMask ? "#rgb(199,199,204)" : "white"}
+          />
+        </TouchableOpacity>
+
         <View
           style={{
             display: "flex",
@@ -251,8 +293,6 @@ export default function Annotate() {
             boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
             flexDirection: "row",
             borderRadius: 20,
-            marginVertical: 3,
-            marginLeft: 3,
             alignItems: "center",
             borderColor: "white",
             borderWidth: 3,
@@ -261,23 +301,19 @@ export default function Annotate() {
           <TouchableOpacity
             style={{
               backgroundColor:
-                thrombusType === ThrombusType.CLOT ? "white" : undefined,
+                thrombusType === AnnotationType.CLOT ? "white" : undefined,
               borderRadius: 15,
               paddingHorizontal: 15,
               paddingVertical: 5,
               marginVertical: 3,
               marginLeft: 3,
-              transitionDuration: "0.5s",
-              transitionProperty: "background-color",
             }}
-            onPress={() => setThrombusType(ThrombusType.CLOT)}
+            onPress={() => setAnnotationType(AnnotationType.CLOT)}
           >
             <Text
               style={{
                 fontWeight:
-                  thrombusType === ThrombusType.CLOT ? 500 : undefined,
-                transitionDuration: "0.5s",
-                transitionProperty: "font-weight",
+                  thrombusType === AnnotationType.CLOT ? 500 : undefined,
               }}
             >
               Clot
@@ -286,23 +322,19 @@ export default function Annotate() {
           <TouchableOpacity
             style={{
               backgroundColor:
-                thrombusType === ThrombusType.FIBRIN ? "white" : undefined,
+                thrombusType === AnnotationType.FIBRIN ? "white" : undefined,
               borderRadius: 15,
               paddingHorizontal: 15,
               paddingVertical: 5,
               marginVertical: 3,
               marginRight: 3,
-              transitionDuration: "0.5s",
-              transitionProperty: "background-color",
             }}
-            onPress={() => setThrombusType(ThrombusType.FIBRIN)}
+            onPress={() => setAnnotationType(AnnotationType.FIBRIN)}
           >
             <Text
               style={{
                 fontWeight:
-                  thrombusType === ThrombusType.FIBRIN ? 500 : undefined,
-                transitionDuration: "0.5s",
-                transitionProperty: "font-weight",
+                  thrombusType === AnnotationType.FIBRIN ? 500 : undefined,
               }}
             >
               Fibrin
@@ -312,15 +344,37 @@ export default function Annotate() {
 
         <TouchableOpacity
           style={{
-            backgroundColor: "white",
+            backgroundColor:
+              thrombusType === AnnotationType.ERASE
+                ? "rgb(255, 138, 196)"
+                : "white",
             borderRadius: 20,
             padding: 10,
-            boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+            boxShadow:
+              thrombusType === AnnotationType.ERASE
+                ? "0px 0px 10px 0px rgba(255, 138, 196, 0.1)"
+                : "0px 0px 10px 0px rgba(0, 0, 0, 0.1)",
           }}
-          onPress={doUndo}
+          disabled={loadingMask}
+          onPress={() =>
+            setAnnotationType(
+              thrombusType === AnnotationType.ERASE
+                ? AnnotationType.CLOT
+                : AnnotationType.ERASE,
+            )
+          }
         >
-          <MaterialCommunityIcons name="undo" size={18} color="black" />
+          <MaterialCommunityIcons
+            name="eraser"
+            size={18}
+            color={
+              loadingMask || thrombusType !== AnnotationType.ERASE
+                ? "#rgb(199,199,204)"
+                : "white"
+            }
+          />
         </TouchableOpacity>
+
         <TouchableOpacity
           style={{
             backgroundColor: "white",
@@ -328,9 +382,31 @@ export default function Annotate() {
             padding: 10,
             boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
           }}
+          disabled={loadingMask}
+          onPress={doUndo}
+        >
+          <MaterialCommunityIcons
+            name="undo"
+            size={18}
+            color={loadingMask ? "gray" : "black"}
+          />
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={{
+            backgroundColor: "white",
+            borderRadius: 20,
+            padding: 10,
+            boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+          }}
+          disabled={loadingMask}
           onPress={doRedo}
         >
-          <MaterialCommunityIcons name="redo" size={18} color="black" />
+          <MaterialCommunityIcons
+            name="redo"
+            size={18}
+            color={loadingMask ? "gray" : "black"}
+          />
         </TouchableOpacity>
         <TouchableOpacity
           style={{

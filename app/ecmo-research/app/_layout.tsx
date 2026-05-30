@@ -8,8 +8,6 @@ import { Image } from "expo-image";
 import AnnotateHeader from "@/components/AnnotateHeader";
 
 export default function RootLayout() {
-  const router = useRouter();
-
   return (
     <StateProvider>
       <Stack>
@@ -57,6 +55,12 @@ export default function RootLayout() {
           options={{
             title: "Annotate Image",
             header: () => <AnnotateHeader />,
+          }}
+        />
+        <Stack.Screen
+          name="chart"
+          options={{
+            title: "Chart",
           }}
         />
       </Stack>

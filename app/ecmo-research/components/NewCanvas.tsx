@@ -1,9 +1,10 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 
 interface CanvasProps {
-  image: Blob;
-  mask: Blob | null;
+  image: ImageBitmap;
+  mask: ImageBitmap | null;
   annotateImage: (path: [number, number][]) => void;
+  hideMask: boolean;
 }
 
 type Coordinate = {
@@ -11,7 +12,7 @@ type Coordinate = {
   y: number;
 };
 
-const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
+const Canvas = ({ image, mask, annotateImage, hideMask }: CanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
@@ -24,7 +25,7 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
 
   // drawing
   const pathRef = useRef<[number, number][]>([]);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const isDrawingRef = useRef<boolean>(false);
 
   useEffect(() => {
     const prepareCanvas = async () => {
@@ -38,12 +39,9 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
         return;
       }
 
-      // convert blob to image bitmap so it can be drawn on canvas
-      const originalImage = await createImageBitmap(image);
-
       // make canvas represent every pixel of original image
-      canvas.width = originalImage.width;
-      canvas.height = originalImage.height;
+      canvas.width = image.width;
+      canvas.height = image.height;
 
       // use css to set the displayed size so full image is shown
       const scaleX = window.innerWidth / canvas.width;
@@ -56,13 +54,12 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
       canvas.style.height = `${canvas.height * imageScaleRef.current}px`;
 
       // display image
-      ctx.drawImage(originalImage, 0, 0);
+      ctx.drawImage(image, 0, 0);
 
       // overlay mask with annotations
-      if (mask !== null) {
-        const maskImage = await createImageBitmap(mask);
+      if (mask !== null && !hideMask) {
         ctx.globalAlpha = 0.5;
-        ctx.drawImage(maskImage, 0, 0);
+        ctx.drawImage(mask, 0, 0);
         ctx.globalAlpha = 1.0;
       }
 
@@ -75,7 +72,7 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
     };
 
     prepareCanvas();
-  }, [image, mask]);
+  }, [image, mask, hideMask]);
 
   useEffect(() => {
     const getPinchDistance = (touches: TouchList) => {
@@ -97,6 +94,10 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
           // @ts-ignore
           y: e.layerY,
         };
+
+        if (isDrawingRef.current) {
+          isDrawingRef.current = false;
+        }
       } else if (e.touches.length === 1) {
         startDrawing(e);
       }
@@ -107,8 +108,7 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
         const canvas = canvasRef.current;
         const ctx = contextRef.current;
 
-        // !isDrawing
-        if (canvas === null || ctx === null) {
+        if (!isDrawingRef.current || canvas === null || ctx === null) {
           return;
         }
 
@@ -123,6 +123,9 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
 
         pathRef.current.push([imageX, imageY]);
       };
+
+      // not strictly necessary, but might help prevent panning the viewport rather than the image
+      e.preventDefault();
 
       if (e.touches.length === 2) {
         const canvas = canvasRef.current;
@@ -164,8 +167,6 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
           const maxX = Math.max(0, window.innerWidth - scaledWidth);
 
           newOriginX = Math.min(Math.max(newOriginX, minX), maxX);
-
-          // TODO - prevent panning the y off-screen
         }
 
         // apply transform, add z component to possibly enable GPU acceleration
@@ -190,18 +191,57 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
 
     const doTouchEnd = (e: TouchEvent) => {
       const finishDrawing = () => {
+        const canvas = canvasRef.current;
         const ctx = contextRef.current;
-        if (ctx === null) {
+        if (canvas === null || ctx === null) {
           return;
         }
 
-        annotateImage([...pathRef.current]);
+        if (
+          isDrawingRef.current &&
+          e.changedTouches.length === 1 &&
+          e.touches.length === 0
+        ) {
+          if (pathRef.current.length < 10) {
+            // handles a couple cases:
+            // 1. the path did not get properly cleared and now the user is tapping on a completely
+            // different part of the image, and we don't want to segment the entire distance
+            // between these points
+            // 2. a small line was drawn mistakenly rather than tapping, and we can assume they
+            // meant to just tap
+            annotateImage([pathRef.current[pathRef.current.length - 1]]);
+          } else {
+            annotateImage([...pathRef.current]);
+          }
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(image, 0, 0);
+          if (mask !== null && !hideMask) {
+            ctx.globalAlpha = 0.5;
+            ctx.drawImage(mask, 0, 0);
+            ctx.globalAlpha = 1.0;
+          }
+        }
 
         pathRef.current = [];
       };
 
-      if (e.changedTouches.length === 1 && e.touches.length === 0) {
-        finishDrawing();
+      finishDrawing();
+    };
+
+    const doTouchCancel = () => {
+      const canvas = canvasRef.current;
+      const ctx = contextRef.current;
+      if (canvas === null || ctx === null) {
+        return;
+      }
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(image, 0, 0);
+      if (mask !== null) {
+        ctx.globalAlpha = 0.5;
+        ctx.drawImage(mask, 0, 0);
+        ctx.globalAlpha = 1.0;
       }
     };
 
@@ -213,15 +253,19 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
     canvas.addEventListener("touchstart", doTouchStart, {
       passive: false,
     });
-    canvas.addEventListener("touchmove", doTouchMove);
+    canvas.addEventListener("touchmove", doTouchMove, {
+      passive: false,
+    });
     canvas.addEventListener("touchend", doTouchEnd);
+    canvas.addEventListener("touchcancel", doTouchCancel);
 
     return () => {
       canvas.removeEventListener("touchstart", doTouchStart);
       canvas.removeEventListener("touchmove", doTouchMove);
       canvas.removeEventListener("touchend", doTouchEnd);
+      canvas.removeEventListener("touchcancel", doTouchCancel);
     };
-  }, [annotateImage]);
+  }, [annotateImage, image, mask, hideMask]);
 
   const startDrawing = (e: TouchEvent) => {
     // @ts-ignore
@@ -249,7 +293,7 @@ const Canvas = ({ image, mask, annotateImage }: CanvasProps) => {
 
     ctx.moveTo(imageX, imageY);
 
-    setIsDrawing(true);
+    isDrawingRef.current = true;
     pathRef.current.push([imageX, imageY]);
   };
 

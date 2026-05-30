@@ -1,6 +1,6 @@
 from typing import TypedDict
-from .models import ThrombusType, Point
+from .models import AnnotationType
 
 class AnnotateImagePayload(TypedDict):
-    path: list[Point]
-    thrombus_type: ThrombusType
+    path: list[list[int]]
+    thrombus_type: AnnotationType

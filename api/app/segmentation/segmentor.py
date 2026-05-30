@@ -8,13 +8,14 @@ from skimage.draw import ellipse, polygon2mask
 from skimage.segmentation import flood
 
 from ..utils.img_utils import make_greyscale
-from ..models import ThrombusType, Point
+from ..models import AnnotationType, Segmentation
+from ..helpers import decode_mask
 
 WINDOW_SIZE = 150
 K_CLOT_POINT = 8
 K_FIBRIN_POINT = 6
 K_CLOT_CIRCLE = 4
-K_FIBRIN_CIRCLE = 6
+K_FIBRIN_CIRCLE = 4
 MORPH_KERNEL_SIZE = 3
 
 
@@ -146,20 +147,30 @@ class Segmentor:
     def segment(
         self,
         path: list[list[int]],
-        thrombus_type: ThrombusType,
+        thrombus_type: AnnotationType,
     ) -> np.ndarray:
-        if len(path) == 1:
+        img_mask = np.zeros_like(self.img_mask, dtype=np.bool)
+
+        if len(path) < min(K_CLOT_POINT, K_FIBRIN_POINT):
             seed = (path[0][1], path[0][0])
             window, new_center = self.get_window_around_point(seed, WINDOW_SIZE)
             clustered, processed, _ = cluster_image(
                 window,
-                K_CLOT_POINT if thrombus_type == ThrombusType.CLOT else K_FIBRIN_POINT,
+                (
+                    K_CLOT_POINT
+                    if thrombus_type == AnnotationType.CLOT
+                    else K_FIBRIN_POINT
+                ),
                 new_center,
             )
             thrombus_mask = smart_flood_fill(clustered, processed, new_center)
 
             # transfer mask for this window onto the original image
             flood_indices = np.nonzero(thrombus_mask)
+            img_mask[
+                flood_indices[0] + (seed[0] - new_center[0]),
+                flood_indices[1] + (seed[1] - new_center[1]),
+            ] = np.True_
             self.img_mask[
                 flood_indices[0] + (seed[0] - new_center[0]),
                 flood_indices[1] + (seed[1] - new_center[1]),
@@ -174,12 +185,12 @@ class Segmentor:
                 window,
                 (
                     K_CLOT_CIRCLE
-                    if thrombus_type == ThrombusType.CLOT
+                    if thrombus_type == AnnotationType.CLOT
                     else K_FIBRIN_CIRCLE
                 ),
             )
 
-            if thrombus_type == ThrombusType.CLOT:
+            if thrombus_type == AnnotationType.CLOT:
                 # take the darkest center
                 dominant_center = np.min(centers)
             else:
@@ -198,6 +209,70 @@ class Segmentor:
             thrombus_mask = morphological_open_close(clustered)
 
             # transfer mask for this window onto the original image
+            img_mask[y_min:y_max, x_min:x_max] = thrombus_mask.astype(np.bool)
             self.img_mask[y_min:y_max, x_min:x_max] |= thrombus_mask.astype(np.bool)
 
-        return thrombus_mask
+        return img_mask
+
+    def erase(
+        self, path: list[list[int]], existing_segmentations: list[Segmentation]
+    ) -> tuple[np.ndarray, int, int]:
+        bounds = np.flip(path)
+        erase_mask = polygon2mask(self.img_mask.shape, bounds)
+        self.img_mask[erase_mask == 1] = 0
+
+        for segmentation in existing_segmentations:
+            if segmentation.thrombus_type != AnnotationType.ERASE:
+                continue
+
+            # if we erase on top of another erase, we don't want to double count the erased
+            # clot/fibrin area
+            mask = decode_mask(segmentation.mask)
+            erase_mask &= ~mask
+
+        clot_area = 0
+        fibrin_area = 0
+        for segmentation in existing_segmentations:
+            if segmentation.thrombus_type == AnnotationType.ERASE:
+                continue
+
+            mask = decode_mask(segmentation.mask)
+            overlap = erase_mask & mask
+            area = int(np.count_nonzero(overlap))
+
+            if segmentation.thrombus_type == AnnotationType.CLOT:
+                clot_area += area
+            else:
+                fibrin_area += area
+
+        return erase_mask, clot_area, fibrin_area
+
+    def undo_segmentation(self, path: list[list[int]], mask: np.ndarray) -> None:
+        if len(path) < min(K_CLOT_POINT, K_FIBRIN_POINT):
+            seed = (path[0][1], path[0][0])
+            mask_indices = np.nonzero(mask)
+            self.img_mask[
+                mask_indices[0] + (seed[0] - WINDOW_SIZE // 2),
+                mask_indices[1] + (seed[1] - WINDOW_SIZE // 2),
+            ] = np.False_
+        else:
+            bounds = np.flip(path)
+            y_min, y_max = np.min(bounds[:, 0]), np.max(bounds[:, 0])
+            x_min, x_max = np.min(bounds[:, 1]), np.max(bounds[:, 1])
+
+            self.img_mask[y_min:y_max, x_min:x_max] &= ~mask
+
+    def redo_segmentation(self, path: list[list[int]], mask: np.ndarray) -> None:
+        if len(path) < min(K_CLOT_POINT, K_FIBRIN_POINT):
+            seed = (path[0][1], path[0][0])
+            mask_indices = np.nonzero(mask)
+            self.img_mask[
+                mask_indices[0] + (seed[0] - WINDOW_SIZE // 2),
+                mask_indices[1] + (seed[1] - WINDOW_SIZE // 2),
+            ] = np.True_
+        else:
+            bounds = np.flip(path)
+            y_min, y_max = np.min(bounds[:, 0]), np.max(bounds[:, 0])
+            x_min, x_max = np.min(bounds[:, 1]), np.max(bounds[:, 1])
+
+            self.img_mask[y_min:y_max, x_min:x_max] |= mask

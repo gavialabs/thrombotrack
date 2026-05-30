@@ -10,14 +10,10 @@ from typing import Sequence
 from .linear_equation import LinearEquation
 from .RANSAC import CircularRANSAC, CircularRANSACFit
 from ..utils.img_utils import resize_with_scaling_factor, make_greyscale
+from ..models import EcmoType
 
 GETINGE_ECMO_SIDE_LENGTH_MM = 88
 NAUTILUS_DIAMETER_MM = 87.5
-
-
-class OxygenatorType(Enum):
-    GETINGE = "getinge"
-    NAUTILUS = "nautilus"
 
 
 def find_pos_neg_intersections_in_image(lines, img_shape):
@@ -89,14 +85,14 @@ def rescale_points(points, scaling_factor):
 
 
 class OxygenatorDetector:
-    def __init__(self, original_img: np.ndarray, oxygenator_type: OxygenatorType) -> None:
+    def __init__(self, original_img: np.ndarray, oxygenator_type: EcmoType) -> None:
         self.original_img = original_img
         self.oxygenator_type = oxygenator_type
 
         self.preprocess()
 
     def preprocess(self) -> None:
-        if self.oxygenator_type == OxygenatorType.GETINGE:
+        if self.oxygenator_type == EcmoType.GETINGE:
             img, scaling_factor = resize_with_scaling_factor(self.original_img, 1024)
             img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
             img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
@@ -261,7 +257,7 @@ class OxygenatorDetector:
         return crop_to_circle(self.original_img, smallest, 0)
 
     def detect_oxygenator(self) -> tuple[np.ndarray, float]:
-        if self.oxygenator_type == OxygenatorType.GETINGE:
+        if self.oxygenator_type == EcmoType.GETINGE:
             lines = self.find_lines()
             corners = self.find_corners(lines)
             warped = self.warp_perspective(corners)

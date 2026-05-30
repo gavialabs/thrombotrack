@@ -332,7 +332,7 @@ export default function Home() {
                           }}
                         >
                           <Text style={{ fontSize: 20, lineHeight: 30 }}>
-                            {item.total_annotated_area?.toFixed(2) ?? 0} mm
+                            {item.total_area?.toFixed(2) ?? 0} mm
                           </Text>
                           <Text style={{ fontSize: 11, lineHeight: 18 }}>
                             2
@@ -356,6 +356,12 @@ export default function Home() {
                               alignItems: "center",
                               borderRadius: 20,
                             }}
+                            onPress={() =>
+                              router.navigate({
+                                pathname: "/chart",
+                                params: { ecmoId: item.id },
+                              })
+                            }
                           >
                             <Text>View chart</Text>
                           </TouchableOpacity>

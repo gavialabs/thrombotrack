@@ -4,7 +4,7 @@ from marshmallow import fields, pre_dump
 from marshmallow.validate import Length, OneOf, Range
 
 from . import ma
-from .models import Ecmo, EcmoType, Image, AnnotationSession, Segmentation, ThrombusType
+from .models import Ecmo, EcmoType, Image, AnnotationSession, Segmentation, AnnotationType
 
 
 class Base64Field(fields.Field):
@@ -26,17 +26,20 @@ class EcmoSchema(ma.SQLAlchemyAutoSchema):
     # need to manually override enum fields, the auto-schema doesn't like them
     type = ma.String(validate=OneOf([EcmoType.GETINGE.value, EcmoType.NAUTILUS.value]))
     thumbnail = Base64Field()
-    total_annotated_area = ma.Float()
+    total_area = ma.Float()
 
     @pre_dump
-    def combine_ecmo_and_latest_image(self, data: tuple[Ecmo, bytes, float], **kwargs) -> dict:
+    def combine_ecmo_and_latest_image(self, data: dict | tuple[Ecmo, bytes, float], **kwargs) -> dict:
+        if isinstance(data, dict):
+            return data
+
         return {
             "id": data[0].id,
             "name": data[0].name,
             "type": data[0].type.value,
             "thumbnail": data[1],
-            "total_annotated_area": data[2],
-        }
+            "total_area": data[2],
+        }        
 
 
 class EcmoImageSchema(ma.SQLAlchemyAutoSchema):
@@ -62,4 +65,11 @@ class SegmentationSchema(ma.SQLAlchemyAutoSchema):
         ma.List(ma.Integer(validate=Range(min=0)), validate=Length(equal=2)),
         validate=Length(min=1),
     )
-    thrombus_type = ma.String(validate=OneOf([ThrombusType.CLOT, ThrombusType.FIBRIN]))
+    thrombus_type = ma.String(validate=OneOf([AnnotationType.CLOT, AnnotationType.FIBRIN, AnnotationType.ERASE]))
+
+
+class EcmoHistorySchema(ma.Schema):
+    time = ma.DateTime()
+    clot_area = ma.Float()
+    fibrin_area = ma.Float()
+

@@ -1,14 +1,12 @@
 import enum
 from datetime import datetime
 from sqlalchemy import Enum, ForeignKey, func, select
-from sqlalchemy.orm import Mapped, mapped_column, column_property
+from sqlalchemy.orm import Mapped, mapped_column, column_property, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from uuid import UUID, uuid4
-from typing import TypedDict
-from . import db
+# from typing import __future__
 
-# class User(db.Model):
-#     pass
+from . import db
 
 
 class EcmoType(enum.Enum):
@@ -31,8 +29,21 @@ class AnnotationSession(db.Model):
     started_at: Mapped[datetime] = mapped_column(default=datetime.now)
     ended_at: Mapped[datetime | None]
     mask: Mapped[bytes] = mapped_column(db.LargeBinary)
-    area: Mapped[int] = mapped_column(default=0)
-    # user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id"))
+
+    clot_area: Mapped[int] = mapped_column(
+        default=0
+    )  # annotated thrombus area (pixels)
+    fibrin_area: Mapped[int] = mapped_column(
+        default=0
+    )  # annotated fibrin area (pixels)
+
+    image: Mapped["Image"] = relationship(back_populates="annotation_sessions")
+    
+    segmentations: Mapped[list["Segmentation"]] = relationship(
+        back_populates="annotation_session",
+        cascade="all, delete-orphan",
+        passive_deletes=True
+    )
 
 
 class Image(db.Model):
@@ -44,6 +55,7 @@ class Image(db.Model):
     mimetype: Mapped[str]
     original: Mapped[bytes] = mapped_column(db.LargeBinary)
     thumbnail: Mapped[bytes] = mapped_column(db.LargeBinary)
+    thumbnail_annotated: Mapped[bytes | None] = mapped_column(db.LargeBinary)
     cropped: Mapped[bytes] = mapped_column(db.LargeBinary)
     width_original: Mapped[int]
     height_original: Mapped[int]
@@ -63,27 +75,32 @@ class Image(db.Model):
         .scalar_subquery()
     )
 
-    total_annotated_area: Mapped[float] = column_property(
-        select(func.sum(AnnotationSession.area) * mm2_per_pixel)
-        .where(AnnotationSession.image_id == id)
+    clot_area: Mapped[float | None] = column_property(
+        select(func.sum(AnnotationSession.clot_area) * mm2_per_pixel)
+        .where(AnnotationSession.image_id == id, AnnotationSession.ended_at != None)
         .correlate_except(AnnotationSession)
         .scalar_subquery()
     )
 
+    fibrin_area: Mapped[float | None] = column_property(
+        select(func.sum(AnnotationSession.fibrin_area) * mm2_per_pixel)
+        .where(AnnotationSession.image_id == id, AnnotationSession.ended_at != None)
+        .correlate_except(AnnotationSession)
+        .scalar_subquery()
+    )
 
-class PromptType(enum.Enum):
-    CIRCLE = "circle"
-    POINT = "point"
+    annotation_sessions: Mapped[list["AnnotationSession"]] = relationship(
+        back_populates="image",
+        cascade="all, delete-orphan",
+        order_by="AnnotationSession.ended_at.desc()",
+        passive_deletes=True
+    )
 
 
-class ThrombusType(str, enum.Enum):
+class AnnotationType(str, enum.Enum):
     CLOT = "clot"
     FIBRIN = "fibrin"
-
-
-class Point(TypedDict):
-    x: int
-    y: int
+    ERASE = "erase"
 
 
 class Segmentation(db.Model):
@@ -93,9 +110,12 @@ class Segmentation(db.Model):
     annotation_session_id: Mapped[UUID] = mapped_column(
         ForeignKey("annotation_sessions.id")
     )
-    prompt_type: Mapped[PromptType] = mapped_column(Enum(PromptType))
-    thrombus_type: Mapped[ThrombusType] = mapped_column(Enum(ThrombusType))
-    path: Mapped[list[Point]] = mapped_column(JSONB)
+    thrombus_type: Mapped[AnnotationType] = mapped_column(Enum(AnnotationType))
+    path: Mapped[list[list[int]]] = mapped_column(JSONB)
     mask: Mapped[bytes] = mapped_column(db.LargeBinary)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
-    area: Mapped[int]
+    clot_area: Mapped[int]  # explicitly separate these since ERASE segmentations can include both
+    fibrin_area: Mapped[int]
+    undo: Mapped[bool] = mapped_column(default=False)
+
+    annotation_session: Mapped["AnnotationSession"] = relationship(back_populates="segmentations")

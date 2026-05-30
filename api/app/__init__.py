@@ -21,7 +21,7 @@ def create_app():
         app,
         origins=[
             "http://localhost:8081",
-            "https://7a8c-205-175-106-67.ngrok-free.app"
+            # "https://95bf-24-22-134-158.ngrok-free.app"
         ],
     )
     app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
