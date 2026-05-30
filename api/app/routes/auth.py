@@ -1,5 +1,13 @@
 import jwt
 import os
+import jwt
+import requests
+from functools import wraps
+from flask import Blueprint, request, jsonify, g
+from jwt.algorithms import RSAAlgorithm
+import json
+from ..utils.session import create_session_token
+
 from flask import (
     Blueprint,
     current_app as app,
@@ -12,106 +20,57 @@ from flask import (
 
 from ..services.auth import build_saml_auth, extract_uwnetid, issue_jwt 
 
-auth_bp = Blueprint("saml", __name__, url_prefix="/saml")
+auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
-JWT_SECRET = os.environ.get("JWT_SECRET", "change-me-in-production")
-JWT_ALGORITHM = "HS256"
+TENANT_ID = os.environ["AZURE_TENANT_ID"]
+CLIENT_ID = os.environ["AZURE_CLIENT_ID"]
+JWKS_URI  = f"https://login.microsoftonline.com/{TENANT_ID}/discovery/v2.0/keys"
 
+def _get_azure_public_keys():
+    """Fetch Azure's public signing keys (cache this in production)."""
+    return requests.get(JWKS_URI).json()["keys"]
 
-@auth_bp.route("/login")
-def login():
-    """
-    SP-initiated login. The Expo app opens this URL in a browser session.
-    Redirects the user to the UW Weblogin page.
-    """
-    auth = build_saml_auth()
-    return redirect(auth.login())
+def _verify_id_token(id_token: str) -> dict:
+    """Verify the Azure ID token signature and claims, return the claims."""
+    keys = _get_azure_public_keys()
 
+    # Match the key by `kid` in the token header
+    header  = jwt.get_unverified_header(id_token)
+    pub_key = next(
+        RSAAlgorithm.from_jwk(json.dumps(k))
+        for k in keys
+        if k["kid"] == header["kid"]
+    )
 
-@auth_bp.route("/callback", methods=["POST"])
-def callback():
-    """
-    Assertion Consumer Service (ACS) endpoint.
-    The UW IdP POSTs the SAML response here after the user authenticates.
-    On success, issues a JWT and deep-links back to the Expo app.
-    """
-    auth = build_saml_auth()
-    auth.process_response()
+    return jwt.decode(
+        id_token,
+        pub_key,
+        algorithms=["RS256"],
+        audience=CLIENT_ID,   # must match your app's client ID
+        options={"verify_exp": True},
+    )
 
-    errors = auth.get_errors()
-    if errors:
-        app.logger.error("SAML errors: %s — %s", errors, auth.get_last_error_reason())
-        return make_response("Authentication failed", 401)
-
-    if not auth.is_authenticated():
-        return make_response("Not authenticated", 401)
+@auth_bp.route("/verify", methods=["POST"])
+def verify():
+    id_token = request.json.get("id_token")
+    if not id_token:
+        return jsonify({"error": "Missing id_token"}), 400
 
     try:
-        uwnetid = extract_uwnetid(auth)
-    except ValueError as e:
-        app.logger.error("Attribute extraction failed: %s", e)
-        return make_response("Missing required attributes", 401)
-
-    attributes = auth.get_attributes()
-    token = issue_jwt(uwnetid, attributes)
-
-    # Store in server-side session as well (optional — useful for web flows)
-    session["uwnetid"] = uwnetid
-    session["saml_session_index"] = auth.get_session_index()
-
-    # Deep-link back to the Expo app with the JWT
-    expo_redirect = f"{EXPO_SCHEME}://auth?token={token}"
-    return redirect(expo_redirect)
-
-
-@auth_bp.route("/saml/metadata")
-def saml_metadata():
-    """
-    Exposes SP metadata XML. The UW SP Registry fetches this URL during
-    registration to auto-populate your SP configuration.
-    Register at: https://iam.uw.edu/spreg
-    """
-    auth = build_saml_auth()
-    settings = auth.get_settings()
-    metadata = settings.get_sp_metadata()
-    errors = settings.validate_metadata(metadata)
-    if errors:
-        return make_response(", ".join(errors), 500)
-    resp = make_response(metadata, 200)
-    resp.headers["Content-Type"] = "application/xml"
-    return resp
-
-
-@auth_bp.route("/saml/logout")
-def saml_logout():
-    """
-    Local logout + redirect to UW's logout page.
-    Note: The UW IdP does NOT support SAML 2.0 Single Logout (SLO).
-    This clears the local session only, then sends users to UW's logout page.
-    """
-    session.clear()
-    return redirect("https://idp.u.washington.edu/idp/logout")
-
-
-@auth_bp.route("/api/me")
-def me():
-    """
-    Example protected API route. Validates the JWT from the Authorization header.
-    Expo app calls this with: Authorization: Bearer <token>
-    """
-    auth_header = request.headers.get("Authorization", "")
-    if not auth_header.startswith("Bearer "):
-        return jsonify({"error": "Missing token"}), 401
-    token = auth_header.removeprefix("Bearer ")
-    try:
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return jsonify(
-            {
-                "uwnetid": payload["uwnetid"],
-                "affiliations": payload.get("affiliations", []),
-            }
-        )
+        claims = _verify_id_token(id_token)
     except jwt.ExpiredSignatureError:
         return jsonify({"error": "Token expired"}), 401
-    except jwt.InvalidTokenError:
-        return jsonify({"error": "Invalid token"}), 401
+    except jwt.InvalidTokenError as e:
+        return jsonify({"error": f"Invalid token: {e}"}), 401
+
+    # Upsert user into your database
+    user = upsert_user(
+        oid=claims["oid"],                          # stable unique ID across apps
+        email=claims.get("preferred_username", ""),
+        name=claims.get("name", ""),
+    )
+
+    # Issue your own session token for subsequent API calls
+    session_token = create_session_token(user.id)  # your own JWT or opaque token
+
+    return jsonify({"user": user.to_dict(), "session_token": session_token})

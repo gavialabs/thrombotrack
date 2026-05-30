@@ -19,6 +19,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Ecmo } from "../constants/types";
 import { useRouter } from "expo-router";
 import { useStateContext } from "@/components/StateContext";
+import { useAzureAuth } from "../hooks/useAzureAuth";
 
 export default function Home() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function Home() {
   const [editingEcmoId, setEditingEcmoId] = useState(null);
   const { dispatch } = useStateContext();
   const [thumbnails, setThumbnails] = useState({});
+  const { login, user, ready } = useAzureAuth();
 
   const [name, setName] = useState<string>("");
 
@@ -59,7 +61,9 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchEcmoList();
+    // login();
+    // fetchEcmoList();
+    console.log("nothing");
   }, []);
 
   useEffect(() => {
@@ -412,7 +416,8 @@ export default function Home() {
           justifyContent: "center",
           boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.3)",
         }}
-        onPress={() => setEcmoList([{ id: "pending", name: "" }, ...ecmoList])}
+        // onPress={() => setEcmoList([{ id: "pending", name: "" }, ...ecmoList])}
+        onPress={login}
       >
         <Entypo name="plus" size={24} color="white" />
       </TouchableOpacity>
