@@ -62,7 +62,7 @@ def get_ecmos():
 
     stmt = (
         db.select(
-            Ecmo, latest_annotated_image.thumbnail, latest_annotated_image.clot_area + latest_annotated_image.fibrin_area
+            Ecmo, latest_annotated_image.thumbnail, latest_annotated_image.clot_area, latest_annotated_image.fibrin_area
         )
         .outerjoin(
             latest_annotated_image_time,

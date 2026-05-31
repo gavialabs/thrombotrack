@@ -1,6 +1,7 @@
 from flask import current_app as app
 import base64
-from marshmallow import fields, pre_dump
+from marshmallow import fields, pre_dump, Schema
+from marshmallow.fields import String
 from marshmallow.validate import Length, OneOf, Range
 
 from . import ma
@@ -17,7 +18,9 @@ class Base64Field(fields.Field):
         if value is None:
             return None
         return base64.b64decode(value)
-
+        
+class VerifyTokenSchema(Schema):
+    id_token = String(required=True)
 
 class EcmoSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
@@ -26,7 +29,8 @@ class EcmoSchema(ma.SQLAlchemyAutoSchema):
     # need to manually override enum fields, the auto-schema doesn't like them
     type = ma.String(validate=OneOf([EcmoType.GETINGE.value, EcmoType.NAUTILUS.value]))
     thumbnail = Base64Field()
-    total_area = ma.Float()
+    clot_area = ma.Float()
+    fibrin_area = ma.Float()
 
     @pre_dump
     def combine_ecmo_and_latest_image(self, data: dict | tuple[Ecmo, bytes, float], **kwargs) -> dict:
@@ -38,7 +42,8 @@ class EcmoSchema(ma.SQLAlchemyAutoSchema):
             "name": data[0].name,
             "type": data[0].type.value,
             "thumbnail": data[1],
-            "total_area": data[2],
+            "clot_area": data[2],
+            "fibrin_area": data[3],
         }        
 
 

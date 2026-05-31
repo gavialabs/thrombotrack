@@ -7,9 +7,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
 } from "react-native";
-// import { CanvasProvider } from "../components/CanvasContext";
-// import { Canvas } from "../components/Canvas";
-import Canvas from "../components/NewCanvas";
+import Canvas from "@/components/NewCanvas";
 import { useStateContext } from "@/components/StateContext";
 import { useEffect, useRef, useState } from "react";
 import {

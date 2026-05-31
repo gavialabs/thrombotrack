@@ -1,10 +1,10 @@
 import enum
 from datetime import datetime
-from sqlalchemy import Enum, ForeignKey, func, select
+from sqlalchemy import Enum, ForeignKey, func, select, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, column_property, relationship
 from sqlalchemy.dialects.postgresql import JSONB
+from typing import Annotated
 from uuid import UUID, uuid4
-# from typing import __future__
 
 from . import db
 
@@ -12,6 +12,30 @@ from . import db
 class EcmoType(enum.Enum):
     GETINGE = "getinge"
     NAUTILUS = "nautilus"
+
+
+TZDateTimeCreated = Annotated[
+    datetime, mapped_column(DateTime(timezone=True), server_default=func.now())
+]
+
+TZDateTimeUpdated = Annotated[
+    datetime,
+    mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    ),
+]
+
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    object_id: Mapped[UUID]
+    email: Mapped[str]
+    name: Mapped[str]
+
+    created_at: Mapped[TZDateTimeCreated]
+    updated_at: Mapped[TZDateTimeUpdated]
 
 
 class Ecmo(db.Model):
@@ -38,11 +62,11 @@ class AnnotationSession(db.Model):
     )  # annotated fibrin area (pixels)
 
     image: Mapped["Image"] = relationship(back_populates="annotation_sessions")
-    
+
     segmentations: Mapped[list["Segmentation"]] = relationship(
         back_populates="annotation_session",
         cascade="all, delete-orphan",
-        passive_deletes=True
+        passive_deletes=True,
     )
 
 
@@ -93,7 +117,7 @@ class Image(db.Model):
         back_populates="image",
         cascade="all, delete-orphan",
         order_by="AnnotationSession.ended_at.desc()",
-        passive_deletes=True
+        passive_deletes=True,
     )
 
 
@@ -114,8 +138,12 @@ class Segmentation(db.Model):
     path: Mapped[list[list[int]]] = mapped_column(JSONB)
     mask: Mapped[bytes] = mapped_column(db.LargeBinary)
     created_at: Mapped[datetime] = mapped_column(default=datetime.now)
-    clot_area: Mapped[int]  # explicitly separate these since ERASE segmentations can include both
+    clot_area: Mapped[
+        int
+    ]  # explicitly separate these since ERASE segmentations can include both
     fibrin_area: Mapped[int]
     undo: Mapped[bool] = mapped_column(default=False)
 
-    annotation_session: Mapped["AnnotationSession"] = relationship(back_populates="segmentations")
+    annotation_session: Mapped["AnnotationSession"] = relationship(
+        back_populates="segmentations"
+    )

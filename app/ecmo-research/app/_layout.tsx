@@ -1,69 +1,33 @@
-import { StateProvider } from "@/components/StateContext";
-import Entypo from "@expo/vector-icons/Entypo";
-import { Stack, useRouter } from "expo-router";
-import { createContext } from "react";
-import { TouchableOpacity, View, Text } from "react-native";
-import { Image } from "expo-image";
+import { Stack } from "expo-router";
 
-import AnnotateHeader from "@/components/AnnotateHeader";
+import { SessionProvider, useSession } from "@/contexts/authContext";
+import HomeHeader from "@/components/HomeHeader";
 
-export default function RootLayout() {
+export default function Root() {
+  // Set up the auth context and render your layout inside of it.
   return (
-    <StateProvider>
-      <Stack>
+    <SessionProvider>
+      <RootNavigator />
+    </SessionProvider>
+  );
+}
+
+// Create a new component that can access the SessionProvider context later.
+function RootNavigator() {
+  const { session } = useSession();
+
+  return (
+    <Stack>
+      <Stack.Protected guard={!!session}>
+        <Stack.Screen name="(app)" options={{ headerShown: false }} />
+      </Stack.Protected>
+
+      <Stack.Protected guard={!session}>
         <Stack.Screen
-          name="index"
-          options={{
-            title: "ECMO Thrombosis Tracker",
-            header: () => (
-              <View
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  height: 64,
-                  backgroundColor: "white",
-                  flexDirection: "row",
-                  paddingHorizontal: 10,
-                  borderBottomColor: "lightgray",
-                  borderBottomWidth: 0.5,
-                }}
-              >
-                <Image
-                  source={require("../assets/images/uw-logo.png")}
-                  style={{
-                    width: 40,
-                    aspectRatio: 1280 / 865,
-                    marginRight: 40,
-                  }}
-                />
-                <Text
-                  style={{ fontSize: 16, textAlign: "center", fontWeight: 500 }}
-                >
-                  ECMO Thrombosis Tracker
-                </Text>
-                <Image
-                  source={require("../assets/images/gavia-labs-logo.svg")}
-                  style={{ width: 80, aspectRatio: 1526 / 486 }}
-                />
-              </View>
-            ),
-          }}
+          name="sign-in"
+          options={{ header: () => <HomeHeader /> }}
         />
-        <Stack.Screen
-          name="annotate"
-          options={{
-            title: "Annotate Image",
-            header: () => <AnnotateHeader />,
-          }}
-        />
-        <Stack.Screen
-          name="chart"
-          options={{
-            title: "Chart",
-          }}
-        />
-      </Stack>
-    </StateProvider>
+      </Stack.Protected>
+    </Stack>
   );
 }

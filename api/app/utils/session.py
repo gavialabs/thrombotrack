@@ -1,15 +1,17 @@
 import jwt, os, datetime
 from functools import wraps
 from flask import request, jsonify, g
+from uuid import UUID
 
 SECRET = os.environ["SECRET_KEY"]
 
 
-def create_session_token(user_id: int) -> str:
+def create_session_token(user_id: UUID) -> str:
     return jwt.encode(
         {
             "sub": str(user_id),
-            "exp": datetime.datetime.utcnow() + datetime.timedelta(hours=8),
+            "exp": datetime.datetime.now(datetime.timezone.utc)
+            + datetime.timedelta(hours=8),
         },
         SECRET,
         algorithm="HS256",
