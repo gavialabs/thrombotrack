@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
 } from "react-native";
 import Canvas from "@/components/NewCanvas";
-import { useStateContext } from "@/components/StateContext";
+import { useStateContext } from "@/context/StateContext";
 import { useEffect, useRef, useState } from "react";
 import {
   Redirect,

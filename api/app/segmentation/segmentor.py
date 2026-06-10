@@ -8,7 +8,7 @@ from skimage.draw import ellipse, polygon2mask
 from skimage.segmentation import flood
 
 from ..utils.img_utils import make_greyscale
-from ..models import AnnotationType, Segmentation
+from ..models import AnnotationType, Annotation
 from ..helpers import decode_mask
 
 WINDOW_SIZE = 150
@@ -215,7 +215,7 @@ class Segmentor:
         return img_mask
 
     def erase(
-        self, path: list[list[int]], existing_segmentations: list[Segmentation]
+        self, path: list[list[int]], existing_segmentations: list[Annotation]
     ) -> tuple[np.ndarray, int, int]:
         bounds = np.flip(path)
         erase_mask = polygon2mask(self.img_mask.shape, bounds)

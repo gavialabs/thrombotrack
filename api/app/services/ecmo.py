@@ -1,7 +1,6 @@
 import datetime
 import numpy as np
 import cv2
-from flask import current_app as app
 from PIL import Image
 from sqlalchemy import delete
 from uuid import UUID, uuid4
@@ -12,16 +11,16 @@ from ..utils.img_utils import *
 from ..detection.oxygenator_detector import OxygenatorDetector
 from ..segmentation.segmentor import Segmentor, AnnotationType
 from ..models import (
-    Ecmo,
-    Image as EcmoImage,
+    Oxygenator,
+    OxygenatorImage,
     AnnotationSession,
-    Segmentation,
+    Annotation,
 )
 from .. import db
 from ..helpers import decode_img, decode_mask, encode_img, encode_mask
 
 
-def create_image(ecmo: Ecmo, image_file: FileStorage):
+def create_image(ecmo: Oxygenator, image_file: FileStorage):
     original_img = np.array(Image.open(image_file.stream), dtype=np.uint8)
 
     cropped, mm2_per_pixel = OxygenatorDetector(
@@ -30,7 +29,7 @@ def create_image(ecmo: Ecmo, image_file: FileStorage):
 
     thumbnail, _ = resize_with_scaling_factor(cropped, 512)
 
-    ecmo_image = EcmoImage(
+    ecmo_image = OxygenatorImage(
         ecmo_id=ecmo.id,
         filename=f"{uuid4().hex}_{secure_filename(image_file.filename)}",
         mimetype=image_file.mimetype,
@@ -55,14 +54,14 @@ def create_image(ecmo: Ecmo, image_file: FileStorage):
     return ecmo_image
 
 
-def create_annotation_session(image: EcmoImage) -> None:
+def create_annotation_session(image: OxygenatorImage) -> None:
     mask = np.zeros((image.width_cropped, image.height_cropped), dtype=np.bool)
     annotation_session = AnnotationSession(image_id=image.id, mask=encode_mask(mask))
     db.session.add(annotation_session)
 
 
 def create_segmentation(
-    ecmo_image: EcmoImage,
+    ecmo_image: OxygenatorImage,
     annotation_session: AnnotationSession,
     path: list[list[int]],
     annotation_type: AnnotationType,
@@ -92,7 +91,7 @@ def create_segmentation(
 
     annotation_session.mask = encode_mask(segmentor.img_mask)
 
-    segmentation = Segmentation(
+    segmentation = Annotation(
         annotation_session_id=annotation_session.id,
         thrombus_type=annotation_type,
         path=path,
@@ -118,12 +117,12 @@ def undo_segmentation(annotation_session: AnnotationSession) -> bytes:
     session_mask = decode_mask(annotation_session.mask)
 
     stmt = (
-        db.select(Segmentation)
-        .where(Segmentation.annotation_session_id == annotation_session.id)
-        .order_by(Segmentation.created_at.desc())
+        db.select(Annotation)
+        .where(Annotation.annotation_session_id == annotation_session.id)
+        .order_by(Annotation.created_at.desc())
         .limit(1)
     )
-    latest_segmentation: Segmentation | None = db.session.execute(stmt).scalar()
+    latest_segmentation: Annotation | None = db.session.execute(stmt).scalar()
     if latest_segmentation is None:
         display_mask = session_mask.astype(np.uint8)
         display_mask[display_mask > 0] = 255
@@ -162,15 +161,15 @@ def redo_segmentation(annotation_session: AnnotationSession) -> bytes:
     session_mask = decode_mask(annotation_session.mask)
 
     stmt = (
-        db.select(Segmentation)
+        db.select(Annotation)
         .where(
-            Segmentation.annotation_session_id == annotation_session.id,
-            Segmentation.undo == True,
+            Annotation.annotation_session_id == annotation_session.id,
+            Annotation.undo == True,
         )
-        .order_by(Segmentation.created_at)
+        .order_by(Annotation.created_at)
         .limit(1)
     )
-    last_undo_segmentation: Segmentation | None = db.session.execute(stmt).scalar()
+    last_undo_segmentation: Annotation | None = db.session.execute(stmt).scalar()
     if last_undo_segmentation is None:
         display_mask = session_mask.astype(np.uint8)
         display_mask[display_mask > 0] = 255
@@ -205,7 +204,7 @@ def redo_segmentation(annotation_session: AnnotationSession) -> bytes:
     return encode_mask(display_mask)
 
 
-def end_session(annotation_session: AnnotationSession, image: EcmoImage) -> None:
+def end_session(annotation_session: AnnotationSession, image: OxygenatorImage) -> None:
     annotation_session.ended_at = datetime.datetime.now()
 
     thumbnail = decode_img(image.thumbnail)
@@ -218,9 +217,9 @@ def end_session(annotation_session: AnnotationSession, image: EcmoImage) -> None
     image.thumbnail_annotated = encode_img(thumbnail)
 
     # delete any segmentations from db that were marked as undo, since we will no longer redo them
-    stmt = delete(Segmentation).where(
-        Segmentation.annotation_session_id == annotation_session.id,
-        Segmentation.undo == True,
+    stmt = delete(Annotation).where(
+        Annotation.annotation_session_id == annotation_session.id,
+        Annotation.undo == True,
     )
     db.session.execute(stmt)
 

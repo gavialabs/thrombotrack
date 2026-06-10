@@ -1,45 +1,91 @@
-# Flask PostgreSQL Docker Template
+# ThromboTrack API
 
-A production-ready Flask application template with PostgreSQL, pgAdmin, Alembic migrations, and automated backup/restore functionality.
+Python Flask-based REST API and PostgreSQL database to send and receive data from the frontend Expo web app, housed in a Docker container.
 
-## Features
+## Description
 
-- 🐍 Flask web application
-- 🐘 PostgreSQL database with automatic migrations
-- 🔧 pgAdmin for database management
-- 💾 Automated backup and restore system
-- 🐳 Docker containerization
-- 🔄 Alembic database migrations
-- 🛠️ Comprehensive Makefile with all commands
-- 🔒 Proper permission management
+The API is a multi-container Docker Compose application, a virtual machine, with two separate containers within it. `web` is a container with a Debian image that runs the Python Flask backend, and `db` is an Alpine Linux container for the PostgreSQL database. `docker-compose.yml` describes the Docker Compose stack including ports, volumes, and environment variables. `Dockerfile` describes the sequence of commands that the virtual machine runs on boot, installing Python and PostgreSQL and then running `entrypoint.sh`, a shell script that starts the database on the VM's port 5432 and then starts the Flask server on the VM's port 5000.
 
-## Quick Start
+## Getting Started
 
 ### Prerequisites
 
-- Docker and Docker Compose installed
+- Python 3.13
+- Docker and Docker Compose
 - Make utility
 
 ### Initial Setup
 
 1. Clone the repository
-2. Initialize the project:
+2. Create a virtual environment and install dependencies
+   - These are for Pylance/typing reasons-- the Docker container downloads its own dependencies
+   ```bash
+   python3.13 -m venv venv
+   source venv/bin/activate
+   pip install -r requirements.txt
+   ```
+3. Initialize the project:
    ```bash
    make init
    ```
-3. Edit `.env` file with your configurations
-4. Start the application:
+4. Fill out `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` in `.env`
+5. Start the application:
    ```bash
    make up
    ```
 
 The application will be available at:
-- **Flask App**: http://localhost:5000
-- **pgAdmin**: http://localhost:5050
+
+- **Flask App**: http://localhost:5000 (or whatever port you defined in `.env`)
+- **PostgreSQL Database**: postgresql://postgres:postgres@db:5432/ecmo_db
+
+## Project Structure
+
+```
+.
+├── app/
+│   ├── detection/            # Oxygenator detection and image cropping
+│   ├── migrations/           # Alembic database migrations
+│   ├── routes/               # API endpoints (input and output)
+│   ├── segmentation/         # Thrombus/fibrin segmentation
+│   ├── services/             # Endpoint handlers
+│   ├── utils/                # Helper functions
+│   ├── __init__.py           # Flask app factory, CORS setup
+│   ├── dto.py                # Typed response payloads
+│   ├── helpers.py            # General helper functions
+│   ├── models.py             # Database models
+│   ├── schemas.py            # Marshmallow schemas for models
+│   └── migrations/           # Alembic migrations
+├── backups/                  # Database backups
+├── docker-compose.yml        # Docker services configuration
+├── Dockerfile                # Application container
+├── entrypoint.sh             # Container startup script
+├── alembic.ini               # Alembic configuration (databse migrations)
+├── requirements.txt          # Python dependencies
+└── Makefile                  # All commands
+```
+
+## Accessing the Database
+
+It is very useful to have direct access to the database for debugging and testing. I recommend installing [DBeaver](https://dbeaver.io) for a GUI to view tables and run queries. You can add a connection as follows:
+
+1. New Database Connection
+2. PostgreSQL
+3. Host: localhost, port: 5432
+4. Database: ecmo_db
+5. Username: postgres
+6. Password: postgres
+
+## Suggested Documentation
+
+- [SQLAlchemy](https://docs.sqlalchemy.org/en/20/)
+- [Marshmallow](https://marshmallow.readthedocs.io/en/latest/)
+- [Flask](https://flask.palletsprojects.com/en/stable/)
 
 ## Available Commands
 
 ### Project Setup
+
 ```bash
 make init              # Initialize the entire project
 make init-env          # Create .env from template
@@ -48,6 +94,7 @@ make fix-permissions   # Fix directory permissions
 ```
 
 ### Container Management
+
 ```bash
 make build      # Build Docker images
 make up         # Start all containers
@@ -58,16 +105,17 @@ make status     # Show complete system status
 ```
 
 ### Development
+
 ```bash
 make dev        # Start development environment with logs
 make logs       # View application logs
 make logs-db    # View database logs
-make logs-pgadmin  # View pgAdmin logs
 make shell      # Open bash in web container
 make shell-db   # Open PostgreSQL shell
 ```
 
 ### Database Migrations
+
 ```bash
 make migrate MSG="description"  # Create new migration
 make upgrade                    # Apply all pending migrations
@@ -77,6 +125,7 @@ make migrate-history           # Show migration history
 ```
 
 ### Backup & Restore
+
 ```bash
 make backup                        # Create database backup
 make backup-list                   # List all backups
@@ -87,108 +136,28 @@ make restore FILE=backup_file.sql.gz  # Restore from backup
 Backups are stored in `./backups/` directory with format: `backup_YYYYMMDD_HHMMSS.sql.gz`
 
 ### Database Management
+
 ```bash
 make db-reset       # Complete database reset (creates backup first)
-make pgadmin-open   # Show pgAdmin connection info
 ```
 
 ### Production
+
 ```bash
 make prod       # Build and start in production mode
 ```
 
 ### Cleanup
+
 ```bash
 make clean      # Remove containers, images, volumes
 make clean-all  # Complete cleanup including data
 ```
 
-## pgAdmin Access
-
-Default credentials (change in `.env`):
-- **Email**: admin@admin.com
-- **Password**: admin
-- **URL**: http://localhost:5050
-
-### Connecting to Database in pgAdmin
-
-1. Open pgAdmin at http://localhost:5050
-2. Right-click "Servers" → "Register" → "Server"
-3. General tab:
-   - Name: `MyApp Database` (or any name)
-4. Connection tab:
-   - Host: `db`
-   - Port: `5432`
-   - Database: `myapp_db` (from .env)
-   - Username: `postgres` (from .env)
-   - Password: `postgres` (from .env)
-
-## Environment Variables
-
-Key variables in `.env`:
-
-```bash
-# Automatic user detection (usually correct)
-UID=1000
-GID=1000
-
-# Flask
-FLASK_ENV=development
-SECRET_KEY=your-secret-key
-APP_PORT=5000
-
-# PostgreSQL
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-POSTGRES_DB=myapp_db
-POSTGRES_PORT=5432
-
-# pgAdmin
-PGADMIN_EMAIL=admin@admin.com
-PGADMIN_PASSWORD=admin
-PGADMIN_EXTERNAL_PORT=5050
-
-# Backup
-BACKUP_RETENTION_DAYS=7
-```
-
-## Project Structure
-
-```
-.
-├── app/
-│   ├── __init__.py           # Flask app factory
-│   ├── models.py             # Database models
-│   ├── routes.py             # Application routes
-│   └── migrations/           # Alembic migrations
-├── backups/                  # Database backups
-├── docker-compose.yml        # Docker services configuration
-├── Dockerfile               # Application container
-├── entrypoint.sh            # Container startup script
-├── requirements.txt         # Python dependencies
-├── Makefile                 # All commands
-├── .env                     # Environment variables (not in git)
-└── .env.example             # Environment template
-
-## Troubleshooting
-
-### Permission Issues
-
-If you encounter permission errors:
-```bash
-make fix-permissions
-```
-
-### Database Connection Issues
-
-Check if database is ready:
-```bash
-make logs-db
-```
-
 ### Reset Everything
 
 For a fresh start:
+
 ```bash
 make clean-all
 make init
@@ -208,18 +177,9 @@ The system includes automatic backup capabilities:
 ⚠️ **Important for Production**:
 
 1. Change `SECRET_KEY` in `.env`
-2. Use strong passwords for database and pgAdmin
+2. Use strong passwords for database
 3. Don't commit `.env` to version control
 4. Use environment-specific `.env` files
 5. Consider using Docker secrets for sensitive data
 
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Test thoroughly
-4. Submit a pull request
-
-## License
-
-MIT License - Feel free to use this template for your projects.
+# add template info here

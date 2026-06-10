@@ -5,7 +5,8 @@ from marshmallow.fields import String
 from marshmallow.validate import Length, OneOf, Range
 
 from . import ma
-from .models import Ecmo, EcmoType, Image, AnnotationSession, Segmentation, AnnotationType
+from .models import Oxygenator, OxygenatorImage, AnnotationSession, Annotation
+from .constants import OxygenatorType, AnnotationType
 
 
 class Base64Field(fields.Field):
@@ -18,22 +19,27 @@ class Base64Field(fields.Field):
         if value is None:
             return None
         return base64.b64decode(value)
-        
-class VerifyTokenSchema(Schema):
-    id_token = String(required=True)
+
+
+class MeSchema(Schema):
+    authenticated = fields.Bool(required=True)
+    user_id = fields.UUID()
+
 
 class EcmoSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        model = Ecmo
+        model = Oxygenator
 
     # need to manually override enum fields, the auto-schema doesn't like them
-    type = ma.String(validate=OneOf([EcmoType.GETINGE.value, EcmoType.NAUTILUS.value]))
+    type = ma.String(validate=OneOf([OxygenatorType.HLS, OxygenatorType.NAUTILUS]))
     thumbnail = Base64Field()
     clot_area = ma.Float()
     fibrin_area = ma.Float()
 
     @pre_dump
-    def combine_ecmo_and_latest_image(self, data: dict | tuple[Ecmo, bytes, float], **kwargs) -> dict:
+    def combine_ecmo_and_latest_image(
+        self, data: dict | tuple[Oxygenator, bytes, float, float], **kwargs
+    ) -> dict:
         if isinstance(data, dict):
             return data
 
@@ -44,14 +50,15 @@ class EcmoSchema(ma.SQLAlchemyAutoSchema):
             "thumbnail": data[1],
             "clot_area": data[2],
             "fibrin_area": data[3],
-        }        
+        }
 
 
 class EcmoImageSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        model = Image
+        model = OxygenatorImage
 
     cropped = Base64Field()
+    thumbnail = Base64Field()
 
 
 class AnnotationSessionSchema(ma.SQLAlchemyAutoSchema):
@@ -63,18 +70,21 @@ class AnnotationSessionSchema(ma.SQLAlchemyAutoSchema):
 
 class SegmentationSchema(ma.SQLAlchemyAutoSchema):
     class Meta:
-        model = Segmentation
+        model = Annotation
 
     mask = Base64Field()
     path = ma.List(
         ma.List(ma.Integer(validate=Range(min=0)), validate=Length(equal=2)),
         validate=Length(min=1),
     )
-    thrombus_type = ma.String(validate=OneOf([AnnotationType.CLOT, AnnotationType.FIBRIN, AnnotationType.ERASE]))
+    type = ma.String(
+        validate=OneOf(
+            [AnnotationType.CLOT, AnnotationType.FIBRIN, AnnotationType.ERASE]
+        )
+    )
 
 
 class EcmoHistorySchema(ma.Schema):
     time = ma.DateTime()
     clot_area = ma.Float()
     fibrin_area = ma.Float()
-

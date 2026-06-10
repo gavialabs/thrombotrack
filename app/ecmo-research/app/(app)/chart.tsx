@@ -1,5 +1,5 @@
 import { useGlobalSearchParams } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   View,
   Dimensions,
@@ -65,126 +65,95 @@ export default function Chart() {
   const [data, setData] = useState([]);
   const { height, width } = useWindowDimensions();
 
-  const chartWidth = width - 48;
-  const chartHeight = height * 0.52;
+  const chartWidth = width - 20;
+  const chartHeight = height * 0.5;
 
-  const formattedRed = redData.map((d, i) => ({
-    value: d.value,
-    dataPointColor: CHART_COLOR_RED,
-    dataPointRadius: 5,
-    customDataPoint: undefined,
-    label: d.date,
-    // labelTextStyle: styles.xLabel,
-    hideDataPoint: false,
-  }));
+  const clotData = useMemo(
+    () =>
+      data.map((d, i) => ({
+        value: d.clot_area,
+        dataPointColor: CHART_COLOR_RED,
+        dataPointRadius: 4,
+      })),
+    [data],
+  );
 
-  const formattedBlue = blueData.map((d) => ({
-    value: d.value,
-    dataPointColor: CHART_COLOR_BLUE,
-    dataPointRadius: 5,
-  }));
+  const fibrinData = useMemo(
+    () =>
+      data.map((d) => ({
+        value: d.fibrin_area,
+        dataPointColor: CHART_COLOR_BLUE,
+        dataPointRadius: 4,
+      })),
+    [data],
+  );
 
-  const formattedBlack = blackData.map((d) => ({
-    value: d.value,
-    dataPointColor: CHART_COLOR_BLACK,
-    dataPointRadius: 5,
-  }));
+  const totalData = useMemo(
+    () =>
+      data.map((d) => ({
+        value: d.clot_area + d.fibrin_area,
+        dataPointColor: CHART_COLOR_BLACK,
+        dataPointRadius: 4,
+        label: moment(d.time).format("MMM D H:mm"),
+      })),
+    [data],
+  );
 
-  // useEffect(() => {
-  //   fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/history`)
-  //     .then((response) => response.json())
-  //     .then((json) => {
-  //       console.log(json);
-  //       setData(
-  //         json.map((item) => ({
-  //           label: moment(item.created_at).local().format("M/D/YY"),
-  //           value: item.total_area,
-  //         })),
-  //       );
-  //     })
-  //     .catch((error) => console.error(error));
-  // }, [ecmoId]);
-
-  // return (
-  //   <View style={{ padding: 20 }}>
-  //     <LineChart
-  //       data={data}
-  //       width={290}
-  //       color1="red"
-  //       xAxisLabelTextStyle={{
-  //         fontSize: 12,
-  //         transform: "rotate(45deg)",
-  //         marginTop: 10,
-  //         marginLeft: 20,
-  //         overflow: "visible",
-  //         color: "gray",
-  //       }}
-  //     />
-  //   </View>
-  // );
+  useEffect(() => {
+    fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/ecmos/${ecmoId}/history`)
+      .then((response) => response.json())
+      .then((json) => {
+        console.log(json);
+        setData(json);
+      })
+      .catch((error) => console.error(error));
+  }, [ecmoId]);
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerLabel}>LONGITUDINAL ASSESSMENT</Text>
-        <Text style={styles.title}>Thrombosis Burden</Text>
-        <Text style={styles.subtitle}>Multi-cohort tracking over time</Text>
-      </View>
-
       {/* Chart card */}
       <View style={styles.card}>
         {/* Y-axis rotated label */}
         <View style={styles.yAxisLabelContainer}>
-          <Text style={styles.yAxisLabel}>Thrombosis Burden (mm²)</Text>
+          <Text style={styles.yAxisLabel}>Thrombotic Burden (mm²)</Text>
         </View>
 
         {/* Chart area */}
         <View style={styles.chartArea}>
           <LineChart
-            data={formattedRed}
-            data2={formattedBlue}
-            data3={formattedBlack}
+            data={totalData}
+            data2={clotData}
+            data3={fibrinData}
             width={chartWidth - Y_AXIS_LABEL_WIDTH - 32}
             height={chartHeight}
             // Colors
-            color1={CHART_COLOR_RED}
-            color2={CHART_COLOR_BLUE}
-            color3={CHART_COLOR_BLACK}
-            // Line thickness
-            thickness1={2.5}
-            thickness2={2.5}
-            thickness3={2.5}
+            color1={CHART_COLOR_BLACK}
+            color2={CHART_COLOR_RED}
+            color3={CHART_COLOR_BLUE}
             // Data points
-            dataPointsColor1={CHART_COLOR_RED}
-            dataPointsColor2={CHART_COLOR_BLUE}
-            dataPointsColor3={CHART_COLOR_BLACK}
-            dataPointsRadius1={5}
-            dataPointsRadius2={5}
-            dataPointsRadius3={5}
-            dataPointsWidth={2}
             // Axes
             xAxisColor={AXIS_COLOR}
             yAxisColor={AXIS_COLOR}
             yAxisTextStyle={styles.yAxisText}
             xAxisLabelTextStyle={styles.xLabel}
+            xAxisTextNumberOfLines={2}
             // Grid
             rulesColor={GRID_COLOR}
             rulesType="solid"
-            noOfSections={5}
+            // noOfSections={5}
             // Spacing
-            spacing={Math.floor(
-              (chartWidth - Y_AXIS_LABEL_WIDTH - 80) / (redData.length - 1),
-            )}
-            initialSpacing={20}
-            endSpacing={20}
+            // spacing={Math.floor(
+            //   (chartWidth - Y_AXIS_LABEL_WIDTH - 80) / (redData.length - 1),
+            // )}
+            // initialSpacing={20}
+            // endSpacing={20}
             // Y axis
-            yAxisOffset={0}
-            maxValue={110}
-            stepValue={20}
-            yAxisLabelWidth={36}
+            // yAxisOffset={0}
+            // maxValue={110}
+            // stepValue={20}
+            // yAxisLabelWidth={36}
             // Background
-            backgroundColor={CARD_BG}
+            // backgroundColor={CARD_BG}
             // Curve style — straight lines connecting dots
             curved={false}
             // Hide the area fill under lines
@@ -195,8 +164,21 @@ export default function Chart() {
             hideDataPoints3={false}
             // Dot inner circle (white center for visibility)
             dataPointsShape="circular"
-            focusEnabled
-            showStripOnFocus
+            // allow tapping on chart to view specific data points
+            // focusEnabled
+            // showStripOnFocus
+            // focusedCustomDataPoint={(dataPoint) => {
+            //   // {value: 38, dataPointColor: "#4A90D9", dataPointRadius: 5}
+            //   return (
+            //     <View
+            //       style={{
+            //         width: 10,
+            //         height: 10,
+            //         backgroundColor: "green",
+            //       }}
+            //     />
+            //   );
+            // }}
           />
         </View>
       </View>
@@ -205,24 +187,19 @@ export default function Chart() {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <LegendDot color={CHART_COLOR_RED} />
-          <Text style={styles.legendText}>Cohort A</Text>
+          <Text style={styles.legendText}>Clotting</Text>
         </View>
         <View style={styles.legendSep} />
         <View style={styles.legendItem}>
           <LegendDot color={CHART_COLOR_BLUE} />
-          <Text style={styles.legendText}>Cohort B</Text>
+          <Text style={styles.legendText}>Fibrin</Text>
         </View>
         <View style={styles.legendSep} />
         <View style={styles.legendItem}>
           <LegendDot color={CHART_COLOR_BLACK} />
-          <Text style={styles.legendText}>Cohort C</Text>
+          <Text style={styles.legendText}>Total</Text>
         </View>
       </View>
-
-      {/* Footer note */}
-      <Text style={styles.footerNote}>
-        Data points represent mean burden per imaging session
-      </Text>
     </View>
   );
 }
@@ -234,7 +211,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingLeft: 20,
     paddingTop: 16,
     paddingBottom: 12,
     backgroundColor: BG_COLOR,
@@ -266,16 +243,6 @@ const styles = StyleSheet.create({
 
   // Card
   card: {
-    backgroundColor: CARD_BG,
-    borderRadius: 16,
-    paddingTop: 20,
-    paddingBottom: 12,
-    paddingRight: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
     flexDirection: "row",
     alignItems: "center",
   },

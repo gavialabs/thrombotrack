@@ -6,7 +6,6 @@
 COMPOSE = docker compose
 WEB_SERVICE = web
 DB_SERVICE = db
-PGADMIN_SERVICE = pgadmin
 APP_DIR = app
 MIGRATIONS_DIR = $(APP_DIR)/migrations
 VERSIONS_DIR = $(MIGRATIONS_DIR)/versions
@@ -63,13 +62,13 @@ help:
 	@grep -E '^## (logs|shell):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
 	@echo ""
 	@echo "$(MAGENTA)🔄 Database Migrations:$(NC)"
-	@grep -E '^## (migrate|upgrade|downgrade|migrate-status|migrate-history|seed):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
+	@grep -E '^## (migrate|upgrade|downgrade|migrate-status|migrate-history):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
 	@echo ""
 	@echo "$(YELLOW)💾 Backup & Restore:$(NC)"
 	@grep -E '^## (backup|restore|backup-list|backup-clean):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
 	@echo ""
 	@echo "$(RED)🔧 Database Management:$(NC)"
-	@grep -E '^## (db-reset|pgadmin-open):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
+	@grep -E '^## (db-reset):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
 	@echo ""
 	@echo "$(CYAN)🚀 Development & Production:$(NC)"
 	@grep -E '^## (dev|prod|test):' $(MAKEFILE_LIST) | sed 's/##/  /' | column -t -s ':'
@@ -90,13 +89,12 @@ init: init-env init-migrations init-backup-dir fix-permissions
 	@echo "$(WHITE)╚════════════════════════════════════════════════════════════════╝$(NC)"
 	@echo ""
 	@echo "$(YELLOW)📝 Next steps:$(NC)"
-	@echo "  1. Edit the .env file with your configurations"
+	@echo "  1. Fill out auth setup in .env"
 	@echo "  2. Run: $(CYAN)make up$(NC) to start the application"
-	@echo "  3. Run: $(CYAN)make seed$(NC) to populate with demo data"
 	@echo ""
 	@echo "$(BLUE)🌐 Access points:$(NC)"
-	@echo "  • Flask App: $(WHITE)http://localhost:5000$(NC)"
-	@echo "  • pgAdmin:   $(WHITE)http://localhost:$(PGADMIN_EXTERNAL_PORT)$(NC)"
+	@echo "  • Flask App: $(WHITE)http://localhost:$(APP_PORT)$(NC)"
+	@echo "  • postgresql:   $(WHITE)postgresql://postgres:postgres@db:$(POSTGRES_PORT)/ecmo_db$(NC)"
 	@echo ""
 
 ## init-env: Create .env file from .env.example
@@ -105,10 +103,7 @@ init-env:
 	@if [ ! -f $(ENV_FILE) ]; then \
 		if [ -f .env.example ]; then \
 			cp .env.example $(ENV_FILE); \
-			sed -i "s/UID=1000/UID=$(UID)/" $(ENV_FILE) 2>/dev/null || true; \
-			sed -i "s/GID=1000/GID=$(GID)/" $(ENV_FILE) 2>/dev/null || true; \
 			echo "$(GREEN)  ✓ .env file created from .env.example$(NC)"; \
-			echo "$(BLUE)  ℹ Detected UID=$(UID) GID=$(GID)$(NC)"; \
 		else \
 			echo "$(RED)  ✗ .env.example file not found$(NC)"; \
 			exit 1; \
@@ -173,17 +168,10 @@ build:
 	@$(COMPOSE) build
 	@echo "$(GREEN)✓ Build completed$(NC)"
 
-## up: Start containers in background
+## up: Start containers and attach terminal
 up:
 	@echo "$(BLUE)🚀 Starting containers...$(NC)"
 	@$(COMPOSE) up
-# 	@echo "$(GREEN)✓ Containers started$(NC)"
-# 	@echo ""
-# 	@echo "$(CYAN)🌐 Services available at:$(NC)"
-# 	@echo "  • Flask App: $(WHITE)http://localhost:5000$(NC)"
-# 	@echo "  • pgAdmin:   $(WHITE)http://localhost:$(PGADMIN_EXTERNAL_PORT)$(NC)"
-# 	@echo ""
-# 	@make ps
 
 ## down: Stop and remove containers
 down:
@@ -235,11 +223,6 @@ logs:
 logs-db:
 	@echo "$(GREEN)📋 Viewing database logs (Ctrl+C to exit)...$(NC)"
 	@$(COMPOSE) logs -f $(DB_SERVICE)
-
-## logs-pgadmin: View pgAdmin logs
-logs-pgadmin:
-	@echo "$(GREEN)📋 Viewing pgAdmin logs (Ctrl+C to exit)...$(NC)"
-	@$(COMPOSE) logs -f $(PGADMIN_SERVICE)
 
 ## logs-all: View all logs
 logs-all:
@@ -296,12 +279,6 @@ migrate-status:
 migrate-history:
 	@echo "$(MAGENTA)📜 Migrations history:$(NC)"
 	@$(COMPOSE) exec $(WEB_SERVICE) alembic history --verbose
-
-## seed: Populate database with demo data
-seed:
-	@echo "$(GREEN)🌱 Seeding database with demo data...$(NC)"
-	@$(COMPOSE) exec $(WEB_SERVICE) python -m app.seed
-	@echo "$(GREEN)✓ Database seeded$(NC)"
 
 # ============================================================================
 # 💾 BACKUP & RESTORE
@@ -385,26 +362,6 @@ db-reset:
 	@make upgrade
 	@echo "$(GREEN)✓ Database reset completed$(NC)"
 
-## pgadmin-open: Show pgAdmin connection info
-pgadmin-open:
-	@echo ""
-	@echo "$(BLUE)╔════════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(BLUE)║                    pgAdmin Connection Info                     ║$(NC)"
-	@echo "$(BLUE)╚════════════════════════════════════════════════════════════════╝$(NC)"
-	@echo ""
-	@echo "$(CYAN)🌐 pgAdmin Access:$(NC)"
-	@echo "  URL:      $(WHITE)http://localhost:$(PGADMIN_EXTERNAL_PORT)$(NC)"
-	@echo "  Email:    $(WHITE)$(PGADMIN_EMAIL)$(NC)"
-	@echo "  Password: $(WHITE)$(PGADMIN_PASSWORD)$(NC)"
-	@echo ""
-	@echo "$(CYAN)🐘 Database Connection Settings:$(NC)"
-	@echo "  Host:     $(WHITE)db$(NC)"
-	@echo "  Port:     $(WHITE)5432$(NC)"
-	@echo "  Database: $(WHITE)$(POSTGRES_DB)$(NC)"
-	@echo "  Username: $(WHITE)$(POSTGRES_USER)$(NC)"
-	@echo "  Password: $(WHITE)$(POSTGRES_PASSWORD)$(NC)"
-	@echo ""
-
 # ============================================================================
 # 🚀 DEVELOPMENT & PRODUCTION
 # ============================================================================
@@ -450,6 +407,6 @@ clean-all:
 # ============================================================================
 
 .PHONY: help init init-env init-migrations init-backup-dir build up down restart ps \
-        logs logs-db logs-pgadmin logs-all shell shell-db migrate upgrade downgrade \
-        migrate-status migrate-history seed backup restore backup-list backup-clean \
-        db-reset fix-permissions pgadmin-open test clean clean-all dev prod status
+        logs logs-db logs-all shell shell-db migrate upgrade downgrade \
+        migrate-status migrate-history backup restore backup-list backup-clean \
+        db-reset fix-permissions test clean clean-all dev prod status

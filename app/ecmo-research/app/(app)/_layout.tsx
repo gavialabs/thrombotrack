@@ -1,4 +1,4 @@
-import { StateProvider } from "@/components/StateContext";
+import { StateProvider } from "@/context/StateContext";
 import Entypo from "@expo/vector-icons/Entypo";
 import { Stack, useRouter } from "expo-router";
 import { createContext } from "react";
@@ -6,6 +6,7 @@ import { TouchableOpacity, View, Text } from "react-native";
 import { Image } from "expo-image";
 
 import AnnotateHeader from "@/components/AnnotateHeader";
+import ChartHeader from "@/components/ChartHeader";
 
 export default function RootLayout() {
   return (
@@ -61,6 +62,13 @@ export default function RootLayout() {
           name="chart"
           options={{
             title: "Chart",
+            header: () => <ChartHeader />,
+          }}
+        />
+        <Stack.Screen
+          name="gallery"
+          options={{
+            title: "Gallery",
           }}
         />
       </Stack>

@@ -26,7 +26,8 @@ def decode_session_token(token: str) -> dict:
 def login_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+        #token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+        # pull session token from cookie, which should be sent with every request
         try:
             g.user_id = decode_session_token(token)["sub"]
         except jwt.InvalidTokenError:

@@ -19,8 +19,7 @@ import Entypo from "@expo/vector-icons/Entypo";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Ecmo } from "../../constants/types";
 import { useRouter } from "expo-router";
-import { useStateContext } from "@/components/StateContext";
-import { useAzureAuth } from "../../hooks/useAzureAuth";
+import { useStateContext } from "@/context/StateContext";
 
 export default function Home() {
   const router = useRouter();
@@ -196,13 +195,15 @@ export default function Home() {
         <>
           <TextInput
             style={{
-              backgroundColor: "rgb(229, 229, 234)",
+              backgroundColor: "rgba(255, 255, 255, 1)",
               marginHorizontal: 20,
               borderRadius: 8,
+              borderWidth: 1,
+              borderColor: "rgba(0, 0, 0, 0.1)",
               marginVertical: 10,
               fontSize: 14,
               padding: 10,
-              boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
+              // boxShadow: "0px 0px 10px 0px rgba(0,0,0,0.1)",
               // -webkit-box-shadow: 0px -1px 20px -1px rgba(0,0,0,0.75);
               // -moz-box-shadow: 0px -1px 20px -1px rgba(0,0,0,0.75);
             }}
@@ -277,7 +278,7 @@ export default function Home() {
                           borderRadius: 8,
                           padding: 5,
                           width: "100%",
-                          fontWeight: 600,
+                          fontWeight: 500,
                           fontSize: 23,
                           marginRight: 10,
                           marginLeft: -5,
@@ -486,7 +487,7 @@ export default function Home() {
                         }}
                         onPress={() =>
                           router.navigate({
-                            pathname: "/chart",
+                            pathname: "/gallery",
                             params: { ecmoId: item.id },
                           })
                         }
