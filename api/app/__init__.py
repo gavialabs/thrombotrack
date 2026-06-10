@@ -23,7 +23,15 @@ def create_app():
             "http://localhost:8081",
         ],
     )
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    db_user = os.environ.get("DB_USER")
+    db_pass = os.environ.get("DB_PASS")
+    db_host = os.environ.get("DB_HOST")
+    db_name = os.environ.get("DB_NAME")
+    db_port = os.environ.get("DB_PORT")
+    db_uri = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+
+    # app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
+    app.config["SQLALCHEMY_DATABASE_URI"] = db_uri
     UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
     os.makedirs(UPLOAD_FOLDER, exist_ok=True)
     app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
