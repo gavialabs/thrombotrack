@@ -1,10 +1,14 @@
+# Note:
+#   - Match patterns: https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#patterns-to-match-file-paths
+
 name: Build and Push Docker image to GHCR
 
 on:
   push:
     branches:
       # - main
-      - 'release/**'
+      # - 'release/**' # Wildcard that matches characters and forward slash
+      - 'release/*' # Wildcard that matches characters
 #  pull_request:
 #    branches:
 #      - main
