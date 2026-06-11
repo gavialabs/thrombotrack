@@ -40,7 +40,7 @@ export PYTHONPATH=/app:$PYTHONPATH
 #  sleep 2
 #done
 
-echo -e "${GREEN}✓ Database ready${NC}"
+#echo -e "${GREEN}✓ Database ready${NC}"
 
 # Run Alembic migrations
 # echo -e "${GREEN}📦 Applying database migrations...${NC}"
