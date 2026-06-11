@@ -69,6 +69,11 @@ jobs:
         id: login-ecr # Unique ID for the step, not job - https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax#jobsjob_idstepsid
         uses: aws-actions/amazon-ecr-login@v2
 
+      # Output a shortened SHA for later use
+      - name: Extract short SHA
+        id: vars
+        run: echo "SHORT_SHA=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
+
       # Build the Dockerfile and push to ECR with GitHub Actions Caching
       #   - `github.sha` uses the github object context reference
       - name: Build and Push Docker Image
@@ -78,19 +83,15 @@ jobs:
           file: ./api/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          tags: ${{steps.vars.outputs.SHORT_SHA}},latest
+          # tags: |
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           # tags: |
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      # Output a shortened SHA for later use
-      - name: Extract short SHA
-        id: vars
-        run: echo "SHORT_SHA=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
       # Build and push to GHCR
       - name: Build and push Docker image
@@ -100,9 +101,10 @@ jobs:
           file: ./api/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
+          tags: ${{steps.vars.outputs.SHORT_SHA}},latest
+          # tags: |
+          #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
           # tags: |
           #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
