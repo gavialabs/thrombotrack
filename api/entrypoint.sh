@@ -16,11 +16,11 @@ if [ -f /app/.env ]; then
   export $(grep -v '^#' /app/.env | grep -v '^UID=' | grep -v '^GID=' | xargs)
 fi
 
-# Verify that DATABASE_URL is defined
-if [ -z "$DATABASE_URL" ]; then
-  echo -e "${RED}✗ Error: DATABASE_URL is not defined${NC}"
-  exit 1
-fi
+## Verify that DATABASE_URL is defined
+#if [ -z "$DATABASE_URL" ]; then
+#  echo -e "${RED}✗ Error: DATABASE_URL is not defined${NC}"
+#  exit 1
+#fi
 
 # Set PYTHONPATH
 export PYTHONPATH=/app:$PYTHONPATH
