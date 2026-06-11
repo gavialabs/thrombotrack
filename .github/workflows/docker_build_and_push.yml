@@ -21,6 +21,7 @@ permissions:  # As top-level key to apply to all jobs (even though there is only
   id-token: write  # Required for requesting the JWT OIDC token from AWS
   contents: read   # Required to checkout the repository code
   packages: write  # To write the built image to GHCR
+  actions: write   # Required for gha cache
 
 env:
   # GHCR
@@ -76,35 +77,40 @@ jobs:
 
       # Build the Dockerfile and push to ECR with GitHub Actions Caching
       #   - `github.sha` uses the github object context reference
-      - name: Build and Push Docker Image
+      - name: Build and Push Image to ECR
         uses: docker/build-push-action@v6
         with:
           context: ./api
           file: ./api/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{steps.vars.outputs.SHORT_SHA}},latest
+          # tags: ${{steps.vars.outputs.SHORT_SHA}},latest,${{ github.sha }}
           # tags: |
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           # tags: |
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       # Build and push to GHCR
-      - name: Build and push Docker image
+      - name: Build and Push Image to GHCR
         uses: docker/build-push-action@v6
         with: # Each is a key/value pair with the key capitalized and prefixed with "INPUT_"
           context: ./api
           file: ./api/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{steps.vars.outputs.SHORT_SHA}},latest
+          # tags: ${{steps.vars.outputs.SHORT_SHA}},latest,${{ github.sha }}
           # tags: |
           #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
-          # tags: |
-          #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          #   ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
