@@ -36,6 +36,7 @@ env:
   AWS_ROLE_ARN: arn:aws:iam::797606048112:role/thrombotrack-github-actions-ecr-role
   ECR_REPOSITORY: arn:aws:ecr:us-west-2:797606048112:repository/thrombotrack
   OIDC_AUDIENCE: sts.amazonaws.com
+  ECR_IMAGE_NAME: thrombotrack
 
 
 jobs:
@@ -91,7 +92,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
-            
+
       # Build the Dockerfile and push to ECR with GitHub Actions Caching
       #   - `github.sha` uses the github object context reference
       - name: Build and Push Image to ECR
@@ -105,13 +106,13 @@ jobs:
           # tags: |
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
           #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
           # tags: |
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:latest
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_IMAGE_NAME }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_IMAGE_NAME }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
