@@ -25,20 +25,20 @@ fi
 # Set PYTHONPATH
 export PYTHONPATH=/app:$PYTHONPATH
 
-# Wait for database to be ready
-echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
-MAX_TRIES=30
-TRIES=0
-
-until psql "$DATABASE_URL" -c '\l' > /dev/null 2>&1; do
-  TRIES=$((TRIES+1))
-  if [ $TRIES -eq $MAX_TRIES ]; then
-    echo -e "${RED}✗ Timeout: unable to connect to database${NC}"
-    exit 1
-  fi
-  echo -e "${YELLOW}  Attempt $TRIES/$MAX_TRIES...${NC}"
-  sleep 2
-done
+## Wait for database to be ready
+#echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
+#MAX_TRIES=30
+#TRIES=0
+#
+#until psql "$DATABASE_URL" -c '\l' > /dev/null 2>&1; do
+#  TRIES=$((TRIES+1))
+#  if [ $TRIES -eq $MAX_TRIES ]; then
+#    echo -e "${RED}✗ Timeout: unable to connect to database${NC}"
+#    exit 1
+#  fi
+#  echo -e "${YELLOW}  Attempt $TRIES/$MAX_TRIES...${NC}"
+#  sleep 2
+#done
 
 echo -e "${GREEN}✓ Database ready${NC}"
 
