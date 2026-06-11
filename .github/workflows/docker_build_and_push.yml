@@ -75,29 +75,6 @@ jobs:
         id: vars
         run: echo "SHORT_SHA=${GITHUB_SHA::8}" >> $GITHUB_OUTPUT
 
-      # Build the Dockerfile and push to ECR with GitHub Actions Caching
-      #   - `github.sha` uses the github object context reference
-      - name: Build and Push Image to ECR
-        uses: docker/build-push-action@v6
-        with:
-          context: ./api
-          file: ./api/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          # tags: ${{steps.vars.outputs.SHORT_SHA}},latest,${{ github.sha }}
-          # tags: |
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          # tags: |
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
-          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          tags: |
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:latest
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-            ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
       # Build and push to GHCR
       - name: Build and Push Image to GHCR
         uses: docker/build-push-action@v6
@@ -114,3 +91,27 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
+            
+      # Build the Dockerfile and push to ECR with GitHub Actions Caching
+      #   - `github.sha` uses the github object context reference
+      - name: Build and Push Image to ECR
+        uses: docker/build-push-action@v6
+        with:
+          context: ./api
+          file: ./api/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          # tags: ${{steps.vars.outputs.SHORT_SHA}},latest,${{ github.sha }}
+          # tags: |
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+          tags: |
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+            ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ steps.vars.outputs.SHORT_SHA }}
+          # tags: |
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:latest
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          #   ${{ steps.login-ecr.outputs.registry }}/${{ env.IMAGE_NAME }}:${{ steps.vars.outputs.SHORT_SHA }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
