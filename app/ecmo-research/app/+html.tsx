@@ -1,5 +1,7 @@
-import { ScrollViewStyleReset } from "expo-router/html";
+// import { ScrollViewStyleReset } from "expo-router/html";
 import type { PropsWithChildren } from "react";
+
+import * as Colors from "@/constants/colors";
 
 // This file is web-only and used to configure the root HTML for every
 // web page during static rendering.
@@ -7,7 +9,7 @@ import type { PropsWithChildren } from "react";
 // do not have access to the DOM or browser APIs.
 export default function Root({ children }: PropsWithChildren) {
   return (
-    <html lang="en">
+    <html lang="en" style={{ backgroundColor: Colors.BG }}>
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
@@ -23,7 +25,7 @@ export default function Root({ children }: PropsWithChildren) {
           Disable body scrolling on web. This makes ScrollView components work closer to how they do on native.
           However, body scrolling is often nice to have for mobile web. If you want to enable it, remove this line.
         */}
-        <ScrollViewStyleReset />
+        {/* <ScrollViewStyleReset /> */}
 
         {/* Add any additional <head> elements that you want globally available on web... */}
       </head>

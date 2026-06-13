@@ -1,10 +1,10 @@
 // Entrypoint into Expo web app
 
 import { Stack } from "expo-router";
+import { FC, JSX } from "react";
 
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import HomeHeader from "@/components/HomeHeader";
-import { FC, JSX } from "react";
 
 /**
  * Entrypoint to app.
@@ -24,11 +24,23 @@ const Root: FC = (): JSX.Element => {
  *
  * @returns Expo Navigation Stack containing logged out page and nested stack of real app pages.
  */
-const RootNavigator: FC = (): JSX.Element => {
-  const { userId } = useAuth();
+const RootNavigator: FC = (): JSX.Element | null => {
+  const { userId, isLoading } = useAuth();
+
+  if (isLoading) {
+    // return null while we are loading the auth state in useAuth. this fixes an issue where we
+    // always redirect to the homepage when refreshing since userId is set to null while loading
+    return null;
+  }
 
   return (
-    <Stack>
+    <Stack
+      screenOptions={{
+        contentStyle: {
+          backgroundColor: "transparent",
+        },
+      }}
+    >
       {/* logged out users (when `userId` is not set) will be shown a dummy page */}
       <Stack.Protected guard={userId === null}>
         <Stack.Screen
@@ -39,7 +51,7 @@ const RootNavigator: FC = (): JSX.Element => {
 
       {/* logged in users (when `userId` is set) will have access to the app pages */}
       <Stack.Protected guard={userId !== null}>
-        <Stack.Screen name="(app)" options={{ headerShown: false }} />
+        <Stack.Screen name="(logged-in)" options={{ headerShown: false }} />
       </Stack.Protected>
     </Stack>
   );

@@ -7,12 +7,12 @@ import { TouchableOpacity, View, Text, StyleSheet } from "react-native";
 
 import * as Colors from "@/constants/colors";
 
-const ChartHeader: FC = (): JSX.Element => {
+const GalleryHeader: FC = (): JSX.Element => {
   const router = useRouter();
 
-  // Go back.
+  // Go to home screen.
   const doPressBack = (): void => {
-    router.back();
+    router.push("/");
   };
 
   return (
@@ -22,7 +22,7 @@ const ChartHeader: FC = (): JSX.Element => {
       </TouchableOpacity>
 
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>Annotation History</Text>
+        <Text style={styles.title}>Image History</Text>
       </View>
 
       {/* hidden view of same width to center title */}
@@ -65,4 +65,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ChartHeader;
+export default GalleryHeader;

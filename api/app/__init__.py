@@ -54,13 +54,17 @@ def create_app():
     db.init_app(app)
     ma.init_app(app)
 
-    from .routes.oxygenators import ecmo_bp
-    from .routes.auth import auth_bp
+    from app.routes.oxygenator import oxygenator_bp
+    from app.routes.auth import auth_bp
+    from app.routes.oxygenator_image import oxygenator_image_bp
+    from app.routes.annotation_session import annotation_session_bp
 
     bp = Blueprint("main", __name__, url_prefix="/api")
 
-    bp.register_blueprint(ecmo_bp)
     bp.register_blueprint(auth_bp)
+    bp.register_blueprint(oxygenator_bp)
+    oxygenator_bp.register_blueprint(oxygenator_image_bp)
+    oxygenator_image_bp.register_blueprint(annotation_session_bp)
 
     app.register_blueprint(bp)
 

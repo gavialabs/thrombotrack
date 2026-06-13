@@ -25,8 +25,8 @@ CLIENT_SECRET = os.environ["CLIENT_SECRET"]
 API_URL = os.environ["API_URL"]
 EXPO_URL = os.environ["EXPO_URL"]
 
-SCOPES = ["openid", "profile", "email"]
-REDIRECT_URI = API_URL + "/oidc_callback"
+SCOPES = ["email"]
+REDIRECT_URI = API_URL + "/api/auth/callback"
 
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 

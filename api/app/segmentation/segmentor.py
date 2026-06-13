@@ -1,8 +1,6 @@
 import cv2
 import numpy as np
 from typing import Sequence
-from flask import current_app as app
-from PIL import Image
 from sklearn.cluster import KMeans
 from skimage.draw import ellipse, polygon2mask
 from skimage.segmentation import flood
@@ -246,33 +244,3 @@ class Segmentor:
                 fibrin_area += area
 
         return erase_mask, clot_area, fibrin_area
-
-    def undo_segmentation(self, path: list[list[int]], mask: np.ndarray) -> None:
-        if len(path) < min(K_CLOT_POINT, K_FIBRIN_POINT):
-            seed = (path[0][1], path[0][0])
-            mask_indices = np.nonzero(mask)
-            self.img_mask[
-                mask_indices[0] + (seed[0] - WINDOW_SIZE // 2),
-                mask_indices[1] + (seed[1] - WINDOW_SIZE // 2),
-            ] = np.False_
-        else:
-            bounds = np.flip(path)
-            y_min, y_max = np.min(bounds[:, 0]), np.max(bounds[:, 0])
-            x_min, x_max = np.min(bounds[:, 1]), np.max(bounds[:, 1])
-
-            self.img_mask[y_min:y_max, x_min:x_max] &= ~mask
-
-    def redo_segmentation(self, path: list[list[int]], mask: np.ndarray) -> None:
-        if len(path) < min(K_CLOT_POINT, K_FIBRIN_POINT):
-            seed = (path[0][1], path[0][0])
-            mask_indices = np.nonzero(mask)
-            self.img_mask[
-                mask_indices[0] + (seed[0] - WINDOW_SIZE // 2),
-                mask_indices[1] + (seed[1] - WINDOW_SIZE // 2),
-            ] = np.True_
-        else:
-            bounds = np.flip(path)
-            y_min, y_max = np.min(bounds[:, 0]), np.max(bounds[:, 0])
-            x_min, x_max = np.min(bounds[:, 1]), np.max(bounds[:, 1])
-
-            self.img_mask[y_min:y_max, x_min:x_max] |= mask

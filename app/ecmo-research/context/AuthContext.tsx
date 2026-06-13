@@ -13,13 +13,18 @@ import {
 
 type AuthContextValue = {
   userId: string | null;
+  isLoading: boolean;
 };
 
-const AuthContext = createContext<AuthContextValue>({ userId: null });
+const AuthContext = createContext<AuthContextValue>({
+  userId: null,
+  isLoading: true,
+});
 
 export const AuthProvider: FC<PropsWithChildren> = ({
   children,
 }): JSX.Element => {
+  const [isLoading, setIsLoading] = useState<boolean>(true);
   const [userId, setUserId] = useState<string | null>(null);
 
   /**
@@ -30,13 +35,15 @@ export const AuthProvider: FC<PropsWithChildren> = ({
    */
   useEffect(() => {
     apiFetch("/auth/me")
-      .then((r) => (r.ok ? r.json() : null))
       .then((data) => setUserId(data?.user_id ?? null))
-      .catch(() => setUserId(null));
+      .catch(() => setUserId(null))
+      .finally(() => setIsLoading(false));
   }, []);
 
   return (
-    <AuthContext.Provider value={{ userId }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ userId, isLoading }}>
+      {children}
+    </AuthContext.Provider>
   );
 };
 

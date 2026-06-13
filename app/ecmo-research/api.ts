@@ -2,11 +2,20 @@ export const apiFetch = async (
   path: string,
   options: { [key: string]: any } = {},
 ): Promise<any> => {
+  let body = options.body;
+  const headers: { [key: string]: string } = {};
+
+  if (!(body instanceof FormData)) {
+    body = JSON.stringify(body);
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(`${process.env.EXPO_PUBLIC_API_URL}${path}`, {
     ...options,
+    body,
     credentials: "include", // include session cookie
     headers: {
-      "Content-Type": "application/json",
+      ...headers,
       ...options.headers,
     },
   });
