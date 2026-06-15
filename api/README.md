@@ -2,6 +2,10 @@
 
 Python Flask-based REST API and PostgreSQL database to send and receive data from the frontend Expo web app, housed in a Docker container.
 
+## Image processing model
+
+This API does **not** use a trained deep-learning model (e.g., YOLO/SAM/UNet). Oxygenator detection and clot/fibrin segmentation are currently implemented with classical computer-vision methods in code (OpenCV/scikit-image/scikit-learn), including Canny/Hough/RANSAC, K-means clustering, and flood-fill/morphology.
+
 ## Description
 
 The API is a multi-container Docker Compose application, a virtual machine, with two separate containers within it. `web` is a container with a Debian image that runs the Python Flask backend, and `db` is an Alpine Linux container for the PostgreSQL database. `docker-compose.yml` describes the Docker Compose stack including ports, volumes, and environment variables. `Dockerfile` describes the sequence of commands that the virtual machine runs on boot, installing Python and PostgreSQL and then running `entrypoint.sh`, a shell script that starts the database on the VM's port 5432 and then starts the Flask server on the VM's port 5000.
