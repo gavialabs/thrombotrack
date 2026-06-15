@@ -29,14 +29,10 @@ env:
   IMAGE_NAME: ${{ github.repository }}/api
 
   # ECR
-  # AWS_REGION: ${{ secrets.AWS_REGION }}                 # e.g., us-east-1
-  # AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}             # Role ARN created for GitHub OIDC
-  # ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}         # Your ECR repository name
-  AWS_REGION: us-west-2
-  AWS_ROLE_ARN: arn:aws:iam::797606048112:role/thrombotrack-github-actions-ecr-role
-  ECR_REPOSITORY: arn:aws:ecr:us-west-2:797606048112:repository/thrombotrack
-  OIDC_AUDIENCE: sts.amazonaws.com
-  ECR_IMAGE_NAME: thrombotrack
+  AWS_REGION: ${{ secrets.AWS_REGION }}                 # e.g., us-east-1
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}             # Role ARN created for GitHub OIDC
+  OIDC_AUDIENCE: ${{ secrets.OIDC_AUDIENCE }}
+  ECR_IMAGE_NAME: ${{ secrets.ECR_IMAGE_NAME }}
 
 
 jobs:
