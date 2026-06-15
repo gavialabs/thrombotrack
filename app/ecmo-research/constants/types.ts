@@ -25,9 +25,9 @@ export type OxygenatorImage = {
   cropped: string;
   thumbnail: string;
   mimetype: string;
-  current_annotation_session_id: string;
+  current_annotation_session_id: string | null;
   created_at: string;
-  mask: string;
+  mask: string | null;
 };
 
 export type AnnotationSession = {

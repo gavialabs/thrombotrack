@@ -26,7 +26,7 @@ def decode_img(img: bytes) -> np.ndarray:
     return np.array(Image.open(io.BytesIO(img)))
 
 
-def make_transparent_mask(mask: np.ndarray) -> np.ndarray:
+def make_transparent_mask(mask: np.ndarray | bytes) -> np.ndarray | bytes:
     """Creates a transparent mask for easy overlay on an image.
 
     Note: If you want to change the color displayed for annotations on the frontend, this is the
@@ -38,6 +38,11 @@ def make_transparent_mask(mask: np.ndarray) -> np.ndarray:
     Returns:
         Mask in uint8 format with solid white foreground and transparent background.
     """
+    encoded = False
+    if isinstance(mask, bytes):
+        encoded = True
+        mask = decode_mask(mask)
+
     # convert bool mask to uint8 and make true pixels white
     transparent = mask.astype(np.uint8)
     transparent[transparent > 0] = 255
@@ -46,7 +51,7 @@ def make_transparent_mask(mask: np.ndarray) -> np.ndarray:
     transparent = cv2.cvtColor(transparent, cv2.COLOR_GRAY2RGBA)  # type: ignore
     transparent[transparent[:, :, 0] == 0] = 0
 
-    return transparent
+    return transparent if not encoded else encode_mask(transparent)
 
 
 def overlay_mask(mask: np.ndarray, img: np.ndarray) -> np.ndarray:
@@ -59,6 +64,9 @@ def overlay_mask(mask: np.ndarray, img: np.ndarray) -> np.ndarray:
     mask_rgb = display_mask[:, :, :3].astype(float)
     mask_alpha = (display_mask[:, :, 3:4] / 255.0) * 0.5
 
+    # app.logger.info(mask_alpha.shape)
+    # app.logger.info(img_alpha.shape)
+    
     result = mask_alpha * mask_rgb + (1 - mask_alpha) * img_alpha[:, :, :3]
     result = result.clip(0, 255).astype(np.uint8)
 

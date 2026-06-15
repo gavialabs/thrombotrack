@@ -58,7 +58,7 @@ const AnnotateScreen: FC = (): JSX.Element => {
   const isAnnotatingClot = annotationType === AnnotationType.CLOT;
   const isAnnotatingFibrin = annotationType === AnnotationType.FIBRIN;
   const isErasing = annotationType === AnnotationType.ERASE;
-  const isAnnotationDisabled = disabled === "true";
+  const isAnnotationDisabled = annotationSessionIdRef.current === null;
 
   // Uploads the image stored in state context to API on page load, or fetches the specified image.
   useEffect(() => {
@@ -72,6 +72,8 @@ const AnnotateScreen: FC = (): JSX.Element => {
     }
 
     if (state.file !== null) {
+      // upload the image file stored in state context-- this means we just came from the home
+      // screen after taking/selecting an image to upload
       const formData = new FormData();
       formData.append("image", state.file);
 
@@ -98,18 +100,24 @@ const AnnotateScreen: FC = (): JSX.Element => {
           setIsLoadingImage(false);
           dispatch({ type: "SET_FILE", payload: null });
         });
-    } else if (oxygenatorId !== undefined) {
+    } else {
+      // fetch the image ID specified in URL params-- this means we just came from the gallery
       apiFetch(
-        `/oxygenators/${oxygenatorId}/oxygenator_images/${oxygenatorImageId}?start_annotation_session=${!disabled}`,
+        `/oxygenators/${oxygenatorId}/oxygenator_images/${oxygenatorImageId}?start_annotation_session=${disabled === "true" ? "false" : "true"}`,
       )
         .then(async (data: OxygenatorImage) => {
+          // set the current annotation session ID-- if we are starting a new session
+          // (disabled == false), this will be a new session ID, and if we are continuing an
+          // unsaved session, this will be the existing session ID (otherwise null)
           console.log(data);
           annotationSessionIdRef.current = data.current_annotation_session_id;
           const imageBitmap = await base64ToBitmap(data.cropped, data.mimetype);
-          const maskBitmap = await base64ToBitmap(data.mask);
-
           setImage(imageBitmap);
-          setMask(maskBitmap);
+
+          if (data.mask !== null) {
+            const maskBitmap = await base64ToBitmap(data.mask);
+            setMask(maskBitmap);
+          }
         })
         .catch((error) => console.error(error))
         .finally(() => setIsLoadingImage(false));

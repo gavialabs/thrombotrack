@@ -213,13 +213,13 @@ class Segmentor:
         return img_mask
 
     def erase(
-        self, path: list[list[int]], existing_segmentations: list[Annotation]
+        self, path: list[list[int]], existing_annotations: list[Annotation]
     ) -> tuple[np.ndarray, int, int]:
         bounds = np.flip(path)
         erase_mask = polygon2mask(self.img_mask.shape, bounds)
         self.img_mask[erase_mask == 1] = 0
 
-        for segmentation in existing_segmentations:
+        for segmentation in existing_annotations:
             if segmentation.thrombus_type != AnnotationType.ERASE:
                 continue
 
@@ -230,7 +230,7 @@ class Segmentor:
 
         clot_area = 0
         fibrin_area = 0
-        for segmentation in existing_segmentations:
+        for segmentation in existing_annotations:
             if segmentation.thrombus_type == AnnotationType.ERASE:
                 continue
 

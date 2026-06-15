@@ -9,6 +9,7 @@ from . import ma
 from .models import Oxygenator, OxygenatorImage, AnnotationSession, Annotation
 from .constants import OxygenatorType, AnnotationType
 from app.dto import OxygenatorListQueryRow
+from app.helpers import make_transparent_mask
 
 
 class Base64Field(fields.Field):
@@ -79,7 +80,7 @@ class OxygenatorImageSchema(ma.SQLAlchemyAutoSchema):
     @pre_dump
     def combine_image_and_session(
         self,
-        data: OxygenatorImage | tuple[OxygenatorImage, uuid.UUID | None, bytes | None],
+        data: OxygenatorImage | tuple[OxygenatorImage, uuid.UUID | None, bytes],
         **kwargs
     ) -> OxygenatorImage | dict:
         if isinstance(data, tuple):
@@ -87,9 +88,8 @@ class OxygenatorImageSchema(ma.SQLAlchemyAutoSchema):
                 "id": data[0].id,
                 "cropped": data[0].cropped,
                 "mimetype": data[0].mimetype,
-                # "current_annotation_session_id": getattr(data[1], "id", None),
-                "current_annotation_session_id": None,
-                "mask": data[2] if len(data) > 2 else None,
+                "current_annotation_session_id": data[1],
+                "mask": make_transparent_mask(data[2]),
             }
 
         return data

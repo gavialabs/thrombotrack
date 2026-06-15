@@ -1,14 +1,11 @@
 import numpy as np
-import math
 from PIL import Image
-# import matplotlib.pyplot as plt
-# import cv2 as cv
-# import skimage as ski
-# from shapely.geometry import MultiPolygon, Point, Polygon
-from collections.abc import Sequence
-# from skimage.morphology import dilation
+from PIL.Image import Image as PILImage
 
-def rescale(image, scaling_factor):
+
+def rescale(
+    image: PILImage | np.ndarray, scaling_factor: float
+) -> PILImage | np.ndarray:
     """
     Rescales an image by a scaling factor.
 
@@ -28,13 +25,13 @@ def rescale(image, scaling_factor):
     else:
         w, h = image.size
 
-    image = image.resize((int(w * scaling_factor), int(h * scaling_factor)))
+    image = image.resize((round(w * scaling_factor), round(h * scaling_factor)))
     if is_array:
         image = np.asarray(image)
     return image
 
 
-def resize_with_scaling_factor(image, longest_side):
+def resize_with_scaling_factor(image: PILImage | np.ndarray, longest_side: int) -> PILImage | np.ndarray:
     """
     Rescales an image by scaling its longest side to a given length.
 

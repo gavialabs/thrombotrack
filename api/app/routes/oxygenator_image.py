@@ -1,18 +1,16 @@
-from flask import Blueprint, Response, abort, jsonify, request
+from flask import Blueprint, Response, abort, jsonify, request, g
 from typing import Literal
 from uuid import UUID
 
 from .. import db
 from app.constants import ALLOWED_EXTENSIONS
 from app.decorators import login_required
-from app.helpers import encode_mask, decode_mask, make_transparent_mask
 from app.models import AnnotationSession, Oxygenator, OxygenatorImage
 from app.schemas import OxygenatorImageSchema
 from app.services.oxygenator import (
     create_annotation_session,
     create_image,
     get_images,
-    get_image,
 )
 
 oxygenator_image_bp = Blueprint(
@@ -92,7 +90,7 @@ def upload_image(oxygenator_id: UUID) -> tuple[Response, Literal[201]]:
 
 @oxygenator_image_bp.route("/<uuid:oxygenator_image_id>", methods=["GET"])
 @login_required
-def get_image(
+def view_image(
     oxygenator_id: UUID, oxygenator_image_id: UUID
 ) -> tuple[Response, Literal[200]]:
     """Gets an oxygenator image + latest annotated mask.
@@ -117,46 +115,33 @@ def get_image(
     if oxygenator_image.oxygenator_id != oxygenator.id:
         abort(404)
 
-    current_annotation_session_id: UUID | None = (
-        db.select(AnnotationSession.id)
+    # get the last unsaved annotation session ID to continue
+    stmt = (
+        db.select(AnnotationSession)
         .where(
             AnnotationSession.oxygenator_image_id == oxygenator_image_id,
             AnnotationSession.ended_at == None,
+            AnnotationSession.user_id == g.get("user").id,
         )
         .order_by(AnnotationSession.started_at.desc())
-        .scalar()
     )
+    current_annotation_session: AnnotationSession | None = db.session.execute(stmt).scalar()
 
     payload = None
-    if current_annotation_session_id is not None:
+    if current_annotation_session is not None:
         # there's an ongoing annotation session, return it to finish
-        payload = tuple([oxygenator_image, current_annotation_session_id, None])
-    elif oxygenator_image.last_annotation_session_id is not None:
+        payload = tuple([oxygenator_image, current_annotation_session.id, current_annotation_session.mask])
+    else:
         # image was previously annotated and session was ended
         last_annotation_session = db.get_or_404(
             AnnotationSession, oxygenator_image.last_annotation_session_id
         )
 
-        # annotation_session = None
-        # if request.args.get("start_annotation_session") == "true":
-        #     # TODO - copy from last session
-        #     annotation_session = create_annotation_session(oxygenator_image, last_annotation_session.mask)
-        
-
-    # encoded_mask = None
-
-    # if oxygenator_image.last_oxygenator_session_id:
-    #     # image has been previously annotated (and saved)
-    #     last_annotation_session = db.get_or_404(
-    #         AnnotationSession, oxygenator_image.last_annotation_session_id
-    #     )
-    #     mask = decode_mask(last_annotation_session.mask)
-    #     display_mask = make_transparent_mask(mask)
-    #     encoded_mask = encode_mask(display_mask)
-    #     # annotation_session = None
-    #     # if request.args.get("start_annotation_session") == "true":
-    #     #     # TODO - copy from last session
-    #     #     annotation_session = create_annotation_session(oxygenator_image)
+        if request.args.get("start_annotation_session") == "true":
+            new_annotation_session = create_annotation_session(oxygenator_image, last_annotation_session)
+            payload = tuple([oxygenator_image, new_annotation_session.id, new_annotation_session.mask])
+        else:
+            payload = tuple([oxygenator_image, None, last_annotation_session.mask])
 
     return (
         jsonify(
@@ -168,7 +153,7 @@ def get_image(
                     "current_annotation_session_id",
                     "mask",
                 )
-            ).dump(tuple([oxygenator_image, None, encoded_mask]))
+            ).dump(payload)
         ),
         200,
     )

@@ -2,12 +2,12 @@
 
 import datetime
 import numpy as np
-import cv2
-from flask import g, current_app as app
+from flask import g
 from PIL import Image
 from sqlalchemy import delete, func, Row
 from uuid import UUID
 from werkzeug.datastructures import FileStorage
+from typing import Sequence
 
 from ..utils.img_utils import *
 from ..detection.oxygenator_detector import OxygenatorDetector
@@ -117,36 +117,58 @@ def create_image(
 
 
 def create_annotation_session(
-    oxygenator_image: OxygenatorImage, last_annotation_session: AnnotationSession | None
+    oxygenator_image: OxygenatorImage, last_annotation_session: AnnotationSession | None = None
 ) -> AnnotationSession:
-    """Create an annotation session for an oxygenator image.
+    """Creates an annotation session for an oxygenator image.
+
+    Optionally copies annotations from a previous session.
 
     Args:
         oxygenator_image: OxygenatorImage to create annotation session for.
+
 
     Returns:
         New AnnotationSession.
     """
     if last_annotation_session is not None:
+        # copy from last session
         annotation_session = AnnotationSession(
             oxygenator_image=oxygenator_image,
             mask=last_annotation_session.mask,
-            clot_area = last_annotation_session.clot_area,
-            fibrin_area = last_annotation_session.fibrin_area,
+            clot_area=last_annotation_session.clot_area,
+            fibrin_area=last_annotation_session.fibrin_area,
             user=g.get("user"),
         )
 
-    mask = np.zeros(
-        (oxygenator_image.width_cropped, oxygenator_image.height_cropped),
-        dtype=np.bool,
-    )
+        db.session.add(annotation_session)
+        db.session.flush()
 
-    annotation_session = AnnotationSession(
-        oxygenator_image=oxygenator_image,
-        mask=encode_mask(mask),
-        user=g.get("user"),
-    )
-    db.session.add(annotation_session)
+        # copy each individual annotation as well
+        copied_annotations = []
+        for annotation in last_annotation_session.annotations:
+            copied_annotations.append(
+                Annotation(
+                    annotation_session_id=annotation_session.id,
+                    type=annotation.type,
+                    path=annotation.path,
+                    mask=annotation.mask,
+                    clot_area=annotation.clot_area,
+                    fibrin_area=annotation.fibrin_area,
+                )
+            )
+        db.session.add_all(copied_annotations)
+    else:
+        mask = np.zeros(
+            (oxygenator_image.width_cropped, oxygenator_image.height_cropped),
+            dtype=np.bool,
+        )
+        annotation_session = AnnotationSession(
+            oxygenator_image=oxygenator_image,
+            mask=encode_mask(mask),
+            user=g.get("user"),
+        )
+        db.session.add(annotation_session)
+
     db.session.commit()
 
     return annotation_session
@@ -185,7 +207,7 @@ def create_annotation(
 
     if annotation_type == AnnotationType.ERASE:
         mask, clot_area, fibrin_area = segmentor.erase(
-            path, annotation_session.segmentations
+            path, annotation_session.annotations
         )
         annotation_session.clot_area -= clot_area
         annotation_session.fibrin_area -= fibrin_area

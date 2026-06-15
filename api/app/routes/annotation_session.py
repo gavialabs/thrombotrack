@@ -78,7 +78,7 @@ def undo_last_annotation(
     if oxygenator_image.oxygenator_id != oxygenator.id:
         abort(404)
     annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
-    if annotation_session.image_id != oxygenator_image.id:
+    if annotation_session.oxygenator_image_id != oxygenator_image.id:
         abort(404)
 
     new_mask = undo_annotation(annotation_session)
@@ -101,7 +101,7 @@ def redo_last_annotation(
     if oxygenator_image.oxygenator_id != oxygenator.id:
         abort(404)
     annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
-    if annotation_session.image_id != oxygenator_image.id:
+    if annotation_session.oxygenator_image_id != oxygenator_image.id:
         abort(404)
 
     new_mask = redo_annotation(annotation_session)
