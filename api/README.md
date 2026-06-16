@@ -182,4 +182,4 @@ The system includes automatic backup capabilities:
 4. Use environment-specific `.env` files
 5. Consider using Docker secrets for sensitive data
 
-# add template info here
+Created from [Flask PostgreSQL Docker Template](https://github.com/manzolo/docker-python-flask-postgres-template)
