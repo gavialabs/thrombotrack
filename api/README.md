@@ -60,7 +60,7 @@ The application will be available at:
 ├── docker-compose.yml        # Docker services configuration
 ├── Dockerfile                # Application container
 ├── entrypoint.sh             # Container startup script
-├── alembic.ini               # Alembic configuration (databse migrations)
+├── alembic.ini               # Alembic configuration (database migrations)
 ├── requirements.txt          # Python dependencies
 └── Makefile                  # All commands
 ```

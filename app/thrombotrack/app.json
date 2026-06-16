@@ -1,16 +1,16 @@
 {
   "expo": {
-    "name": "ecmo-research",
-    "slug": "ecmo-research",
+    "name": "thrombotrack",
+    "slug": "thrombotrack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "ecmoresearch",
+    "scheme": "thrombotrack",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.lucapalermo.ecmo-research"
+      "bundleIdentifier": "com.lucapalermo.thrombotrack"
     },
     "android": {
       "adaptiveIcon": {
