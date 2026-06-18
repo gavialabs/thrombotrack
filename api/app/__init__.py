@@ -43,11 +43,13 @@ def create_app():
     
     from .routes.ecmo import ecmo_bp
     from .routes.auth import auth_bp
+    from .routes.health import health_bp
 
     bp = Blueprint("main", __name__, url_prefix="/api")
     
     bp.register_blueprint(ecmo_bp)
     bp.register_blueprint(auth_bp)
+    bp.register_blueprint(health_bp)
 
     app.register_blueprint(bp)
 
