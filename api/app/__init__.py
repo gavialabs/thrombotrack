@@ -41,6 +41,7 @@ def create_app():
 
     db.init_app(app)
     
+    # Routes under the domain.com/api/* url prefix
     from .routes.ecmo import ecmo_bp
     from .routes.auth import auth_bp
     from .routes.health import health_bp
@@ -50,6 +51,9 @@ def create_app():
     bp.register_blueprint(ecmo_bp)
     bp.register_blueprint(auth_bp)
     bp.register_blueprint(health_bp)
+
+
+
 
     app.register_blueprint(bp)
 
