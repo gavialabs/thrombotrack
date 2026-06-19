@@ -20,9 +20,10 @@ def create_app():
     CORS(
         app,
         origins=[
-            # "http://localhost:8081",
-            "https://drpu8diugs7ek.cloudfront.net/",
+            "http://localhost:8081",
+            "https://drpu8diugs7ek.cloudfront.net",
         ],
+        supports_credentials=True,
     )
     db_user = os.environ.get("DB_USER")
     db_pass = os.environ.get("DB_PASS")
