@@ -37,4 +37,3 @@ Thumbs.db
 # Docker
 docker-compose.override.yml
 postgres_data/
-pgadmin_data/

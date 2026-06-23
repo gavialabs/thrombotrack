@@ -1,18 +1,19 @@
-import enum
 from datetime import datetime
-from sqlalchemy import Enum, ForeignKey, func, select, DateTime
+from sqlalchemy import (
+    Enum,
+    ForeignKey,
+    func,
+    select,
+    DateTime,
+    LargeBinary,
+)
 from sqlalchemy.orm import Mapped, mapped_column, column_property, relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from typing import Annotated
 from uuid import UUID, uuid4
 
 from . import db
-
-
-class EcmoType(enum.Enum):
-    GETINGE = "getinge"
-    NAUTILUS = "nautilus"
-
+from .constants import OxygenatorType, AnnotationType
 
 TZDateTimeCreated = Annotated[
     datetime, mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -26,6 +27,33 @@ TZDateTimeUpdated = Annotated[
 ]
 
 
+# Oxygenator -> Images -> Annotation Sessions -> Annotations
+# user is attached to an annotation session
+
+
+class Annotation(db.Model):
+    __tablename__ = "annotations"
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    annotation_session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("annotation_sessions.id", ondelete="CASCADE")
+    )
+    type: Mapped[AnnotationType] = mapped_column(Enum(AnnotationType))
+    path: Mapped[list[list[int]]] = mapped_column(JSONB)
+    mask: Mapped[bytes] = mapped_column(
+        LargeBinary
+    )  # boolean mask of the entire image area
+    # explicitly separate clot/fibrin area since ERASE annotations can have both
+    clot_area: Mapped[int]  # pixels
+    fibrin_area: Mapped[int]
+    undo: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[TZDateTimeCreated]
+
+    annotation_session: Mapped["AnnotationSession"] = relationship(
+        back_populates="annotations"
+    )
+
+
 class User(db.Model):
     __tablename__ = "users"
 
@@ -37,113 +65,110 @@ class User(db.Model):
     created_at: Mapped[TZDateTimeCreated]
     updated_at: Mapped[TZDateTimeUpdated]
 
-
-class Ecmo(db.Model):
-    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    name: Mapped[str] = mapped_column(unique=True)
-    type: Mapped[EcmoType] = mapped_column(Enum(EcmoType), default=EcmoType.GETINGE)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    annotation_sessions: Mapped[list["AnnotationSession"]] = relationship(
+        back_populates="user",
+        cascade="all, delete",
+        passive_deletes=True,
+    )
 
 
 class AnnotationSession(db.Model):
     __tablename__ = "annotation_sessions"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    image_id: Mapped[UUID] = mapped_column(ForeignKey("images.id"))
-    started_at: Mapped[datetime] = mapped_column(default=datetime.now)
-    ended_at: Mapped[datetime | None]
-    mask: Mapped[bytes] = mapped_column(db.LargeBinary)
+    oxygenator_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("oxygenator_images.id", ondelete="CASCADE")
+    )
+    started_at: Mapped[TZDateTimeCreated]
+    ended_at: Mapped[datetime | None]  # if this is non-null, we "saved" the annotations
+    mask: Mapped[bytes] = mapped_column(
+        LargeBinary
+    )  # boolean mask of the entire image area with all annotations overlaid
+    user_id: Mapped[UUID] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
 
-    clot_area: Mapped[int] = mapped_column(
-        default=0
-    )  # annotated thrombus area (pixels)
+    clot_area: Mapped[int] = mapped_column(default=0)  # annotated clot area (pixels)
     fibrin_area: Mapped[int] = mapped_column(
         default=0
     )  # annotated fibrin area (pixels)
 
-    image: Mapped["Image"] = relationship(back_populates="annotation_sessions")
-
-    segmentations: Mapped[list["Segmentation"]] = relationship(
+    oxygenator_image: Mapped["OxygenatorImage"] = relationship(
+        back_populates="annotation_sessions"
+    )
+    annotations: Mapped[list["Annotation"]] = relationship(
         back_populates="annotation_session",
-        cascade="all, delete-orphan",
+        cascade="all, delete",
         passive_deletes=True,
     )
+    user: Mapped["User"] = relationship(back_populates="annotation_sessions")
 
 
-class Image(db.Model):
-    __tablename__ = "images"
+class OxygenatorImage(db.Model):
+    __tablename__ = "oxygenator_images"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    ecmo_id: Mapped[UUID] = mapped_column(ForeignKey("ecmo.id"))
-    filename: Mapped[str]
+    oxygenator_id: Mapped[UUID] = mapped_column(
+        ForeignKey("oxygenators.id", ondelete="CASCADE")
+    )
     mimetype: Mapped[str]
-    original: Mapped[bytes] = mapped_column(db.LargeBinary)
-    thumbnail: Mapped[bytes] = mapped_column(db.LargeBinary)
-    thumbnail_annotated: Mapped[bytes | None] = mapped_column(db.LargeBinary)
-    cropped: Mapped[bytes] = mapped_column(db.LargeBinary)
+    original: Mapped[bytes] = mapped_column(LargeBinary)
+    thumbnail: Mapped[bytes] = mapped_column(LargeBinary)
+    cropped: Mapped[bytes] = mapped_column(LargeBinary)
+    thumbnail_annotated: Mapped[bytes | None] = mapped_column(LargeBinary)
     width_original: Mapped[int]
     height_original: Mapped[int]
     width_cropped: Mapped[int]
     height_cropped: Mapped[int]
-    mm2_per_pixel: Mapped[float] = mapped_column(
-        db.Float
-    )  # explicitly define to use in subquery
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
+    # define this column so that it can be used in subqueries below
+    mm2_per_pixel: Mapped[float] = mapped_column(db.Float)
 
-    current_annotation_session_id: Mapped[int | None] = column_property(
+    created_at: Mapped[TZDateTimeCreated]
+
+    last_annotation_session_id: Mapped[UUID | None] = column_property(
         select(AnnotationSession.id)
-        .where(AnnotationSession.image_id == id)
-        .order_by(AnnotationSession.started_at.desc())
+        .where(
+            AnnotationSession.oxygenator_image_id == id,
+            AnnotationSession.ended_at != None,
+        )
+        .order_by(AnnotationSession.ended_at.desc())
         .limit(1)
         .correlate_except(AnnotationSession)
-        .scalar_subquery()
+        .scalar_subquery(),
+        deferred=True,
     )
 
-    clot_area: Mapped[float | None] = column_property(
-        select(func.sum(AnnotationSession.clot_area) * mm2_per_pixel)
-        .where(AnnotationSession.image_id == id, AnnotationSession.ended_at != None)
-        .correlate_except(AnnotationSession)
-        .scalar_subquery()
-    )
-
-    fibrin_area: Mapped[float | None] = column_property(
-        select(func.sum(AnnotationSession.fibrin_area) * mm2_per_pixel)
-        .where(AnnotationSession.image_id == id, AnnotationSession.ended_at != None)
-        .correlate_except(AnnotationSession)
-        .scalar_subquery()
-    )
-
+    oxygenator: Mapped["Oxygenator"] = relationship(back_populates="oxygenator_images")
     annotation_sessions: Mapped[list["AnnotationSession"]] = relationship(
-        back_populates="image",
-        cascade="all, delete-orphan",
+        back_populates="oxygenator_image",
+        cascade="all, delete",
         order_by="AnnotationSession.ended_at.desc()",
         passive_deletes=True,
     )
 
 
-class AnnotationType(str, enum.Enum):
-    CLOT = "clot"
-    FIBRIN = "fibrin"
-    ERASE = "erase"
-
-
-class Segmentation(db.Model):
-    __tablename__ = "segmentations"
+class Oxygenator(db.Model):
+    __tablename__ = "oxygenators"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    annotation_session_id: Mapped[UUID] = mapped_column(
-        ForeignKey("annotation_sessions.id")
+    name: Mapped[str] = mapped_column(unique=True)
+    type: Mapped[OxygenatorType] = mapped_column(
+        Enum(OxygenatorType), default=OxygenatorType.HLS
     )
-    thrombus_type: Mapped[AnnotationType] = mapped_column(Enum(AnnotationType))
-    path: Mapped[list[list[int]]] = mapped_column(JSONB)
-    mask: Mapped[bytes] = mapped_column(db.LargeBinary)
-    created_at: Mapped[datetime] = mapped_column(default=datetime.now)
-    clot_area: Mapped[
-        int
-    ]  # explicitly separate these since ERASE segmentations can include both
-    fibrin_area: Mapped[int]
-    undo: Mapped[bool] = mapped_column(default=False)
 
-    annotation_session: Mapped["AnnotationSession"] = relationship(
-        back_populates="segmentations"
+    created_at: Mapped[TZDateTimeCreated]
+    updated_at: Mapped[TZDateTimeUpdated]
+
+    last_annotated_oxygenator_image_id: Mapped[UUID | None] = column_property(
+        select(OxygenatorImage.id)
+        .where(OxygenatorImage.oxygenator_id == id, OxygenatorImage.thumbnail_annotated != None)
+        .order_by(OxygenatorImage.created_at.desc())
+        .limit(1)
+        .correlate_except(OxygenatorImage)
+        .scalar_subquery(),
+        deferred=True,
+    )
+
+    oxygenator_images: Mapped[list["OxygenatorImage"]] = relationship(
+        back_populates="oxygenator",
+        cascade="all, delete",
+        passive_deletes=True,
     )

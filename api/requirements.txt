@@ -29,6 +29,7 @@ MarkupSafe==3.0.3
 marshmallow==4.3.0
 marshmallow-sqlalchemy==1.5.0
 matplotlib==3.10.9
+msal==1.37.0
 networkx==3.6.1
 numpy==2.4.4
 opencv-python-headless==4.13.0.92
