@@ -7,7 +7,7 @@ from app.decorators import login_required
 from app.dto import AnnotateImagePayload
 from app.models import AnnotationSession, Oxygenator, OxygenatorImage
 from app.schemas import AnnotationSchema, AnnotationSessionSchema
-from app.services.oxygenator import (
+from app.services.annotation_session import (
     create_annotation,
     end_annotation_session,
     redo_annotation,
@@ -20,6 +20,8 @@ annotation_session_bp = Blueprint(
     __name__,
     url_prefix="/<uuid:oxygenator_image_id>/annotation_sessions",
 )
+
+# oxygenator_id and oxygenator_image_id get passed into routes defined here as function argument
 
 
 @annotation_session_bp.route(
@@ -52,16 +54,15 @@ def annotate_image(
     if annotation_session.oxygenator_image_id != oxygenator_image.id:
         abort(404)
 
-    new_mask = create_annotation(
+    create_annotation(
         oxygenator_image=oxygenator_image,
         annotation_session=annotation_session,
         path=payload["path"],
         annotation_type=payload["type"],
     )
 
-    # annotation_session has had its mask updated to include the latest segmentation
     return (
-        jsonify(AnnotationSessionSchema(only=("mask",)).dump({"mask": new_mask})),
+        jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)),
         201,
     )
 
@@ -70,9 +71,20 @@ def annotate_image(
     "/<uuid:annotation_session_id>/undo",
     methods=["POST"],
 )
+@login_required
 def undo_last_annotation(
     oxygenator_id: UUID, oxygenator_image_id: UUID, annotation_session_id: UUID
-):
+) -> tuple[Response, Literal[201]]:
+    """Undoes the last annotation in a session.
+
+    Args:
+        oxygenator_id: ID of oxygenator being annotated.
+        oxygenator_image_id: ID of oxygenator image being annotated.
+        annotation_session_id: ID of current annotation session.
+
+    Returns:
+        AnnotationSessionSchema with just the latest `mask`.
+    """
     oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
     oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
     if oxygenator_image.oxygenator_id != oxygenator.id:
@@ -81,10 +93,10 @@ def undo_last_annotation(
     if annotation_session.oxygenator_image_id != oxygenator_image.id:
         abort(404)
 
-    new_mask = undo_annotation(annotation_session)
+    undo_annotation(annotation_session)
 
     return (
-        jsonify(AnnotationSessionSchema(only=("mask",)).dump({"mask": new_mask})),
+        jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)),
         201,
     )
 
@@ -93,9 +105,20 @@ def undo_last_annotation(
     "/<uuid:annotation_session_id>/redo",
     methods=["POST"],
 )
+@login_required
 def redo_last_annotation(
     oxygenator_id: UUID, oxygenator_image_id: UUID, annotation_session_id: UUID
-):
+) -> tuple[Response, Literal[201]]:
+    """Redoes the last annotation in a session.
+
+    Args:
+        oxygenator_id: ID of oxygenator being annotated.
+        oxygenator_image_id: ID of oxygenator image being annotated.
+        annotation_session_id: ID of current annotation session.
+
+    Returns:
+        AnnotationSessionSchema with just the latest `mask`.
+    """
     oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
     oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
     if oxygenator_image.oxygenator_id != oxygenator.id:
@@ -104,10 +127,10 @@ def redo_last_annotation(
     if annotation_session.oxygenator_image_id != oxygenator_image.id:
         abort(404)
 
-    new_mask = redo_annotation(annotation_session)
+    redo_annotation(annotation_session)
 
     return (
-        jsonify(AnnotationSessionSchema(only=("mask",)).dump({"mask": new_mask})),
+        jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)),
         201,
     )
 
@@ -116,6 +139,7 @@ def redo_last_annotation(
     "/<uuid:annotation_session_id>/end",
     methods=["POST"],
 )
+@login_required
 def save_annotations(
     oxygenator_id: UUID, oxygenator_image_id: UUID, annotation_session_id: UUID
 ) -> tuple[Response, Literal[200]]:

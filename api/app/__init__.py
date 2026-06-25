@@ -38,8 +38,7 @@ def create_app():
         supports_credentials=True,  # allow cookies to be submitted across domains
         origins=[
             "http://localhost:8081",
-            # "https://95bf-24-22-134-158.ngrok-free.app"
-            f"https://{os.environ['CLOUDFRONT_DOMAIN_NAME']}"
+            f"https://{os.environ["CLOUDFRONT_DOMAIN_NAME"]}"
         ],
     )
 
@@ -49,10 +48,8 @@ def create_app():
     db_host = os.environ["DB_HOST"]
     db_name = os.environ["DB_NAME"]
     db_port = os.environ["DB_PORT"]
-    
     if not all([db_user, db_pass, db_host, db_name, db_port]):
         raise RuntimeError(f"Missing DB environment variables in {Path(__file__).name}")
-
     # db_pass_encoded = quote(db_pass)
     # os.environ["DATABASE_URL"] = f"postgresql://{db_user}:{db_pass_encoded}@{db_host}:{db_port}/{db_name}"
     os.environ["DATABASE_URL"] = URL.create(

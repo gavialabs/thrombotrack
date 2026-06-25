@@ -5,9 +5,8 @@ from sklearn.cluster import KMeans
 from skimage.draw import ellipse, polygon2mask
 from skimage.segmentation import flood
 
-from ..utils.img_utils import make_greyscale
-from ..models import AnnotationType, Annotation
-from ..helpers import decode_mask
+from app.helpers import decode_mask, make_greyscale
+from app.models import AnnotationType, Annotation
 
 WINDOW_SIZE = 150
 K_CLOT_POINT = 8
@@ -15,21 +14,35 @@ K_FIBRIN_POINT = 6
 K_CLOT_CIRCLE = 4
 K_FIBRIN_CIRCLE = 4
 MORPH_KERNEL_SIZE = 3
+SEED_NEIGHBORHOOD = 2
+GRAYSCALE_WEIGHTS = (0.8, 0.2, 0)
+BLUR_KERNEL_SIZE = 5
 
 
 def cluster_image(
     img: np.ndarray,
     k: int,
     seed: Sequence[int] | None = None,
-    neighborhood_size: int = 2,
-    grayscale_weights=[0.8, 0.2, 0],
-    blur: int = 5,
+    neighborhood_size: int = SEED_NEIGHBORHOOD,
+    grayscale_weights: tuple[float, float, float] = GRAYSCALE_WEIGHTS,
+    blur: int = BLUR_KERNEL_SIZE,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Clusters an image.
+
+    Makes the image grayscale using provided or default weights to enhance contrast between blood
+    and clotting/fibrin and remove glare from plastic. Equalizes the grayscale image's histogram to
+    dramatically increase contrast between blood and clotting/fibrin. Blurs the image to reduce
+    noise from dust on the oxygenator window. If a seed is given, uses the neighborhood size around
+    the seed to get an average color as one of the initial centroids. Otherwise, uses default
+    k-means++ centroid initialization. Clusters the image and returns the clustered, blurred, and
+    final centroids.
+    """
     if seed is not None:
         y, x = seed
 
     gray = make_greyscale(img, grayscale_weights)
-    eq = cv2.equalizeHist(gray)
+    eq = cv2.equalizeHist(gray)  # type: ignore
     blurred = cv2.GaussianBlur(eq, (blur, blur), cv2.BORDER_DEFAULT)
 
     init_y = np.random.choice(np.arange(img.shape[0]), size=k - 1, replace=False)

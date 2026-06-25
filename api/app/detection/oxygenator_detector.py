@@ -9,8 +9,8 @@ from typing import Sequence
 
 from .linear_equation import LinearEquation
 from .RANSAC import CircularRANSAC, CircularRANSACFit
-from ..utils.img_utils import resize_with_scaling_factor, make_greyscale
-from ..constants import OxygenatorType
+from app.helpers import resize_with_scaling_factor, make_greyscale
+from app.constants import OxygenatorType
 
 GETINGE_ECMO_SIDE_LENGTH_MM = 88
 NAUTILUS_DIAMETER_MM = 87.5
@@ -46,10 +46,7 @@ def find_pos_neg_intersections_in_image(lines, img_shape):
         if s1 == s2:
             return False
 
-        # if l2.slope == 0:
-        #     return math.isclose(l1.slope, )
-
-        return math.isclose(l1.slope, -1 / l2.slope, rel_tol=0.25)  # was at 0.2
+        return math.isclose(l1.slope, -1 / l2.slope, rel_tol=0.25)
 
     intersections = []
     for i, line1 in enumerate(lines):

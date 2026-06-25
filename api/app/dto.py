@@ -18,6 +18,12 @@ class OxygenatorListQueryRow(NamedTuple):
     annotated_by: str | None
 
 
+class AnnotationHistoryQueryRow(NamedTuple):
+    imaged_at: datetime
+    clot_area: float
+    fibrin_area: float
+
+
 class AnnotateImagePayload(TypedDict):
     path: list[list[int]]
     type: AnnotationType

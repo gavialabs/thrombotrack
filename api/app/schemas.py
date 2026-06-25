@@ -1,14 +1,13 @@
-from datetime import datetime
 import base64
 import uuid
 from marshmallow import fields, pre_dump, Schema
 from marshmallow.fields import DateTime, Float, Integer, List, String, UUID
 from marshmallow.validate import Length, OneOf, Range
+from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
-from . import ma
-from .models import Oxygenator, OxygenatorImage, AnnotationSession, Annotation
-from .constants import OxygenatorType, AnnotationType
-from app.dto import OxygenatorListQueryRow
+from app.models import Oxygenator, OxygenatorImage, AnnotationSession, Annotation
+from app.constants import OxygenatorType, AnnotationType
+from app.dto import AnnotationHistoryQueryRow, OxygenatorListQueryRow
 from app.helpers import make_transparent_mask
 
 
@@ -29,7 +28,7 @@ class MeSchema(Schema):
     user_id = fields.UUID()
 
 
-class OxygenatorSchema(ma.SQLAlchemyAutoSchema):
+class OxygenatorSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Oxygenator
 
@@ -68,7 +67,7 @@ class OxygenatorSchema(ma.SQLAlchemyAutoSchema):
         }
 
 
-class OxygenatorImageSchema(ma.SQLAlchemyAutoSchema):
+class OxygenatorImageSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = OxygenatorImage
 
@@ -95,15 +94,26 @@ class OxygenatorImageSchema(ma.SQLAlchemyAutoSchema):
         return data
 
 
-class AnnotationSessionSchema(ma.SQLAlchemyAutoSchema):
+class AnnotationSessionSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = AnnotationSession
 
     mask = Base64Field()
     imaged_at = DateTime()
 
+    @pre_dump
+    def make_display_mask(
+        self, data: AnnotationSession | AnnotationHistoryQueryRow, **kwargs
+    ) -> dict | AnnotationHistoryQueryRow:
+        if isinstance(data, AnnotationSession):
+            return {
+                "mask": make_transparent_mask(data.mask),
+            }
 
-class AnnotationSchema(ma.SQLAlchemyAutoSchema):
+        return data
+
+
+class AnnotationSchema(SQLAlchemyAutoSchema):
     class Meta:
         model = Annotation
 
