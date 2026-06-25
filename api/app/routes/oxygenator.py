@@ -9,17 +9,18 @@ from typing import Literal
 from uuid import UUID
 
 from .. import db
-from ..models import Oxygenator
-from ..schemas import (
+from app.models import Oxygenator
+from app.schemas import (
     OxygenatorSchema,
     AnnotationSessionSchema,
 )
-from ..services.oxygenator import (
+from app.services.oxygenator import (
     get_oxygenators,
     get_annotation_history,
 )
 from app.decorators import login_required
 
+# rooted at /api
 oxygenator_bp = Blueprint("oxygenators", __name__, url_prefix="/oxygenators")
 
 
@@ -154,6 +155,7 @@ def delete_oxygenator(oxygenator_id: UUID) -> tuple[Response, Literal[200]]:
 
 
 @oxygenator_bp.route("/<uuid:oxygenator_id>/history", methods=["GET"])
+@login_required
 def get_history(oxygenator_id: UUID):
     """Gets a list of annotations for an oxygenator.
 

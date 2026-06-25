@@ -28,7 +28,7 @@ The API is a multi-container Docker Compose application, a virtual machine, with
    ```bash
    make init
    ```
-4. Fill out `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, and `AZURE_CLIENT_SECRET` in `.env`
+4. Fill out `AUTHORITY`, `CLIENT_ID`, and `CLIENT_SECRET` (from Azure) in `.env`
 5. Start the application:
    ```bash
    make up

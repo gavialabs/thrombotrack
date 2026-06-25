@@ -7,11 +7,10 @@ from app.constants import ALLOWED_EXTENSIONS
 from app.decorators import login_required
 from app.models import AnnotationSession, Oxygenator, OxygenatorImage
 from app.schemas import OxygenatorImageSchema
-from app.services.oxygenator import (
+from app.services.annotation_session import (
     create_annotation_session,
-    create_image,
-    get_images,
 )
+from app.services.oxygenator_image import get_images, create_image
 
 oxygenator_image_bp = Blueprint(
     # rooted at /api/oxygenators
@@ -125,12 +124,20 @@ def view_image(
         )
         .order_by(AnnotationSession.started_at.desc())
     )
-    current_annotation_session: AnnotationSession | None = db.session.execute(stmt).scalar()
+    current_annotation_session: AnnotationSession | None = db.session.execute(
+        stmt
+    ).scalar()
 
     payload = None
     if current_annotation_session is not None:
         # there's an ongoing annotation session, return it to finish
-        payload = tuple([oxygenator_image, current_annotation_session.id, current_annotation_session.mask])
+        payload = tuple(
+            [
+                oxygenator_image,
+                current_annotation_session.id,
+                current_annotation_session.mask,
+            ]
+        )
     else:
         # image was previously annotated and session was ended
         last_annotation_session = db.get_or_404(
@@ -138,8 +145,16 @@ def view_image(
         )
 
         if request.args.get("start_annotation_session") == "true":
-            new_annotation_session = create_annotation_session(oxygenator_image, last_annotation_session)
-            payload = tuple([oxygenator_image, new_annotation_session.id, new_annotation_session.mask])
+            new_annotation_session = create_annotation_session(
+                oxygenator_image, last_annotation_session
+            )
+            payload = tuple(
+                [
+                    oxygenator_image,
+                    new_annotation_session.id,
+                    new_annotation_session.mask,
+                ]
+            )
         else:
             payload = tuple([oxygenator_image, None, last_annotation_session.mask])
 

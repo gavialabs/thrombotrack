@@ -35,7 +35,6 @@ def create_app():
         supports_credentials=True,  # allow cookies to be submitted across domains
         origins=[
             "http://localhost:8081",
-            # "https://95bf-24-22-134-158.ngrok-free.app"
             f"https://{os.environ["CLOUDFRONT_DOMAIN_NAME"]}"
         ],
     )

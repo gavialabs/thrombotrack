@@ -1,18 +1,14 @@
 import os
 from flask import (
     Blueprint,
-    Response,
+    abort,
     request,
     jsonify,
     redirect,
     session,
 )
-from flask import (
-    Blueprint,
-    jsonify,
-    request,
-)
 from typing import Literal
+from werkzeug.wrappers import Response
 
 from app import msal_app
 from app.schemas import MeSchema
@@ -21,13 +17,13 @@ from app.decorators import login_required
 
 AUTHORITY = os.environ["AUTHORITY"]
 CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
 API_URL = os.environ["API_URL"]
 EXPO_URL = os.environ["EXPO_URL"]
 
 SCOPES = ["email"]
 REDIRECT_URI = API_URL + "/api/auth/callback"
 
+# rooted at /api
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 
@@ -44,18 +40,22 @@ def login():
 
 
 @auth_bp.route("/callback")
-def auth_callback():
-    """Exchanges code, adds user to database, and sets cookie."""
+def auth_callback() -> Response:
+    """Exchanges code for an ID token and sets cookie.
+
+    Adds user to the database if they do not already exist or updates their information. Stores a
+    session cookie containing `user_id` corresponding to our database's ID for the User object.
+
+    Returns:
+        Redirect response object back to the Expo frontend."""
     error = request.args.get("error")
     if error:
-        return (
-            jsonify(
-                {"error": error, "description": request.args.get("error_description")}
-            ),
-            400,
-        )
+        abort(400, description=f"{error}: {request.args.get("error_description")}")
 
     code = request.args.get("code")
+
+    if code is None:
+        abort(400, description="code not found")
 
     # exchange code for a JWT id token containing user information in claims
     result = msal_app.acquire_token_by_authorization_code(
@@ -65,7 +65,7 @@ def auth_callback():
     )
 
     if "error" in result:
-        return jsonify(result), 400
+        return abort(400, description=result["error"])
 
     # extract claims and save or update user object in database
     claims = result["id_token_claims"]
@@ -74,10 +74,11 @@ def auth_callback():
     email = claims.get("email")
     name = claims.get("name")
 
+    # insert/update user in the database
     user = upsert_user(oid, email, name)
 
     # store user ID in session cookie
-    session.permanent = True  # store for the whole 8-hour expiration
+    session.permanent = True  # allows us to set the expiration time
     session["user_id"] = str(user.id)
 
     return redirect(EXPO_URL)
