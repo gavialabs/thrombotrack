@@ -38,6 +38,14 @@ def create_app():
             # "https://95bf-24-22-134-158.ngrok-free.app"
         ],
     )
+
+    db_user = os.environ.get("DB_USER")
+    db_pass = os.environ.get("DB_PASS")
+    db_host = os.environ.get("DB_HOST")
+    db_name = os.environ.get("DB_NAME")
+    db_port = os.environ.get("DB_PORT")
+    os.environ["DATABASE_URL"] = f"postgresql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+
     app.config.update(
         SQLALCHEMY_DATABASE_URI=os.getenv("DATABASE_URL"),
         SECRET_KEY=os.getenv("SECRET_KEY", "dev-secret-key"),
@@ -58,9 +66,11 @@ def create_app():
     from app.routes.auth import auth_bp
     from app.routes.oxygenator_image import oxygenator_image_bp
     from app.routes.annotation_session import annotation_session_bp
+    from app.routes.health import health_bp
 
     bp = Blueprint("main", __name__, url_prefix="/api")
 
+    bp.register_blueprint(health_bp)
     bp.register_blueprint(auth_bp)
     bp.register_blueprint(oxygenator_bp)
     oxygenator_bp.register_blueprint(oxygenator_image_bp)
