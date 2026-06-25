@@ -1,4 +1,4 @@
-# ECMO Image Capture Application (ThromboTrack)
+# ThromboTrack (ECMO Image Capture Application)
 
 Frontend web app is under /app/thrombotrack. API is under /api. Follow the nested README's for full documentation on how to use and develop.
 
