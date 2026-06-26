@@ -103,7 +103,7 @@ class LinearEquation:
 
         return x * self.slope + self.intercept[1]
 
-    def intersection(self, other):
+    def intersection(self, other) -> tuple[float, float | None] | None:
         """Finds the intersection point of two LinearEquations."""
         if not isinstance(other, LinearEquation):
             raise TypeError("Must pass a linear equation to find intersection.")

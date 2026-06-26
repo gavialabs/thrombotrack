@@ -119,7 +119,7 @@ def smart_flood(
 
     Args:
         clustered: Clustered image array.
-        processed: Pre-processed image array from cluster_image.
+        processed: Preprocessed image array from cluster_image.
         seed: Point to flood at.
         preserve_seed: Whether seed must be present in output.
         contiguous: Whether mask area must be contiguous.

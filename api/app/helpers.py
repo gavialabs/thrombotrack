@@ -158,7 +158,7 @@ def resize_with_scaling_factor(
 
 def make_greyscale(
     image: np.ndarray | PILImage, weights=[0.2125, 0.7154, 0.0721]
-) -> PILImage:
+) -> np.ndarray | PILImage:
     """
     Makes an image grayscale.
 
@@ -189,4 +189,4 @@ def make_greyscale(
     if not is_array:
         image = Image.fromarray(image)
 
-    return image  # type: ignore
+    return image

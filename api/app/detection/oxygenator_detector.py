@@ -1,39 +1,42 @@
-from flask import current_app as app
+"""Module for automatically cropping images of oxygenators."""
+
 import cv2
 import math
 import numpy as np
-from enum import Enum
-from PIL import Image
 from sklearn.cluster import KMeans
 from typing import Sequence
 
-from .linear_equation import LinearEquation
-from .RANSAC import CircularRANSAC, CircularRANSACFit
+from app.constants import *
+from app.detection.linear_equation import LinearEquation
+from app.detection.RANSAC import Circle, CircularRANSAC, CircularRANSACFit
 from app.helpers import resize_with_scaling_factor, make_greyscale
-from app.constants import OxygenatorType
-
-GETINGE_ECMO_SIDE_LENGTH_MM = 88
-NAUTILUS_DIAMETER_MM = 87.5
 
 
-def find_pos_neg_intersections_in_image(lines, img_shape):
-    """
+def find_pos_neg_intersections_in_image(
+    lines: list[LinearEquation], img_shape: tuple[int, int]
+) -> list[tuple[float, float | None]]:
+    """Finds intersections of roughly perpendicular lines.
+
     Finds the intersections of given lines that occur within the bounds of an image,
-    but only if the lines have opposite sign slopes.
+    but only if the lines are roughly perpendicular (within 25% of the value of the slope).
 
     Args:
-        lines: a list of LienarEquation objects.
-        img_shape: the dimensions of an image the lines are derived from.
+        lines: List of LinearEquations.
+        img_shape: Shape of the image the lines were detected in.
 
     Returns:
-        intersections: a list of intersection points.
+        List of intersection coordinates.
     """
 
-    def in_image(point):
+    def in_image(point: tuple[float, float | None]) -> bool:
         x, y = point
+
+        if y is None:
+            return x > 0 and x < img_shape[1]
+
         return (x > 0 and x < img_shape[1]) and (y > 0 and y < img_shape[0])
 
-    def opposite_slopes(l1, l2):
+    def opposite_slopes(l1: LinearEquation, l2: LinearEquation) -> bool:
         if l1.slope is None:
             return l2.slope == 0
 
@@ -64,60 +67,95 @@ def find_pos_neg_intersections_in_image(lines, img_shape):
     return intersections
 
 
-def rescale_points(points, scaling_factor):
-    """
-    Rescales a set of points to coincide with the scaling of an image
+def rescale_points(points: np.ndarray, scaling_factor: float) -> list[list[int]]:
+    """Rescales a set of points to coincide with the scaling of an image.
 
     Args:
-        points: a list of points.
-        scaling_factor: a scaling factor to multiply by.
+        points: List of points.
+        scaling_factor: Scaling factor to multiply by.
 
     Returns:
-        out: a rescaled version of the points.
+        Rescaled version of the points.
     """
-    out = np.array(points) * (1 / scaling_factor)
-    out = out.tolist()
-    out = [[round(p, 0) for p in point] for point in out]
+    rescaled = (np.array(points) * (1 / scaling_factor)).tolist()
+    out = [[round(p, 0) for p in point] for point in rescaled]
     return out
 
 
 class OxygenatorDetector:
-    def __init__(self, original_img: np.ndarray, oxygenator_type: OxygenatorType) -> None:
+    """Detects oxygenators in images.
+
+    Attributes:
+        original_image: Original image array uploaded by user containing an oxygenator.
+        oxygenator_type: Type of oxygenator in image (HLS/Nautilus)
+        img: Rescaled and grayscaled image array.
+        scaling_factor: Factor by which the original image was rescaled.
+    """
+
+    def __init__(self, original_img: np.ndarray, oxygenator_type: OxygenatorType):
+        """Initializes with an original image and oxygenator type and performs preprocessing."""
         self.original_img = original_img
         self.oxygenator_type = oxygenator_type
 
         self.preprocess()
 
     def preprocess(self) -> None:
+        """Rescales and grayscales original image."""
         if self.oxygenator_type == OxygenatorType.HLS:
-            img, scaling_factor = resize_with_scaling_factor(self.original_img, 1024)
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-            img = cv2.GaussianBlur(img, (5, 5), cv2.BORDER_DEFAULT)
+            img, scaling_factor = resize_with_scaling_factor(
+                self.original_img, HLS_LONGEST_SIDE
+            )
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # type: ignore
+            img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)  # type: ignore
+            img = cv2.GaussianBlur(img, (HLS_GAUSSIAN_BLUR, HLS_GAUSSIAN_BLUR), cv2.BORDER_DEFAULT)  # type: ignore
         else:
-            img, scaling_factor = resize_with_scaling_factor(self.original_img, 512)
-            img = make_greyscale(img, [0, 0.5, 0.5])
+            img, scaling_factor = resize_with_scaling_factor(
+                self.original_img, NAUTILUS_LONGEST_SIDE
+            )
+            img = make_greyscale(img, NAUTILUS_GRAYSCALE_WEIGHTS)
 
-        self.img = img
+        self.img: np.ndarray = img  # type: ignore
         self.scaling_factor = scaling_factor
 
+    def detect_oxygenator(self) -> tuple[np.ndarray, float]:
+        """Detects an oxygenator in original image and crops to the detected area.
+
+        Uses the length of the detected image to determine a conversion factor between square
+        millimeters and pixels for this image.
+
+        Returns:
+            Cropped image array and conversion factor.
+        """
+        if self.oxygenator_type == OxygenatorType.HLS:
+            lines = self.find_lines()
+            corners = self.find_corners(lines)
+            warped = self.warp_perspective(corners)
+
+            area_pixels = warped.shape[0] * warped.shape[1]
+            area_mm2 = HLS_SIDE_LENGTH_MM**2.0
+        else:
+            circle = self.find_circle()
+            warped = self.crop_to_circle(circle)
+
+            area_pixels = np.pi * ((warped.shape[0] / 2) ** 2)
+            area_mm2 = np.pi * ((NAUTILUS_DIAMETER_MM / 2) ** 2)
+
+        mm2_per_pixel = area_mm2 / area_pixels
+
+        return warped, mm2_per_pixel
+
     def find_lines(self) -> list[LinearEquation]:
+        """Detects lines within image using probabilistic Hough algorithm."""
         ret, _ = cv2.threshold(self.img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         edges = cv2.Canny(self.img, ret / 3 * 2, ret * 2)
 
-        rho = 1  # distance resolution in pixels of the Hough grid
-        theta = np.pi / 180  # angular resolution in radians of the Hough grid
-        threshold = 150  # minimum number of votes (intersections in Hough grid cell)
-        min_line_length = 30  # minimum number of pixels making up a line
-        max_line_gap = 0  # maximum gap in pixels between connectable line segments
-
         lines = cv2.HoughLinesP(
             edges,
-            rho,
-            theta,
-            threshold,
-            minLineLength=min_line_length,
-            maxLineGap=max_line_gap,
+            HOUGH_RHO,
+            HOUGH_THETA,
+            HOUGH_THRESHOLD,
+            minLineLength=HOUGH_MIN_LINE_LENGTH,
+            maxLineGap=HOUGH_MAX_LINE_GAP,
         )
 
         linear_equations = []
@@ -129,12 +167,28 @@ class OxygenatorDetector:
         return linear_equations
 
     def find_corners(self, lines: list[LinearEquation]) -> np.ndarray:
+        """Detects corners of a square described by list of lines.
+
+        Finds roughly perpendicular interesections between given lines. Uses k-means clustering to
+        group intersections into 4 groups. Finds expected side length as mean distance between
+        clusters and uses this to remove outlier points. Takes the innermost remaining points and
+        rescales to original image dimensions.
+
+        Args:
+            lines: List of LinearEquations.
+
+        Returns:
+            Array of left, top, right, and bottom corner coordinates in original image dimensions.
+        """
+
         def remove_outliers(
             points: np.ndarray,
             neighbors: Sequence[np.ndarray],
             expected_dist: float,
-            tol: float = 0.8,
-        ):
+            tol: float = CORNER_OUTLIER_TOL,
+        ) -> np.ndarray:
+            """Filters outlier points whose distance to adjacent square corners is greater than a
+            tolerance."""
             dist_to_neighbor_1 = np.linalg.norm(points - neighbors[0], axis=1)
             dist_to_neighbor_2 = np.linalg.norm(points - neighbors[1], axis=1)
 
@@ -203,6 +257,7 @@ class OxygenatorDetector:
         return rescaled_corners
 
     def warp_perspective(self, corners: np.ndarray) -> np.ndarray:
+        """Transforms the list of corners on an image to a perfect square."""
         # calculate side length of resulting square as mean of difference between adjacent corners
         side_length = int(
             np.mean(
@@ -225,48 +280,35 @@ class OxygenatorDetector:
         )
         return cv2.warpPerspective(self.original_img, M, (side_length, side_length))
 
-    def find_circle(self) -> np.ndarray:
-        def rescale_circle(circle, scaling_factor):
+    def crop_to_circle(
+        self, circle: Circle, buffer: int = CIRCLE_CROP_BUFFER
+    ) -> np.ndarray:
+        """Crops the original image to the edges of the given circle with an optional buffer."""
+        cx, cy = circle.center
+        r = circle.radius + buffer
+        return self.original_img[cy - r : cy + r + 1, cx - r : cx + r + 1]
+
+    def find_circle(self) -> Circle:
+        """Detects a circle in image using Canny and RANSAC."""
+
+        def rescale_circle(circle: Circle, scaling_factor: float) -> Circle:
+            """Rescales a circle equation by a given scaling factor."""
             cx, cy = circle.center
             r = circle.radius
-            new_center = rescale_points([[cx, cy]], scaling_factor)[0]
+            new_center = rescale_points(np.array([cx, cy]), scaling_factor)[0]
             cx, cy = new_center
             r = 1 / scaling_factor * r
             conv = lambda x: int(round(x, 0))
             return CircularRANSACFit((conv(cx), conv(cy)), conv(r))
 
-        def crop_to_circle(img, circle, buffer):
-            cx, cy = circle.center
-            r = circle.radius + buffer
-            img = img[cy - r : cy + r + 1, cx - r : cx + r + 1]
-            return img
-
-        edges = cv2.Canny(self.img, 300, 500)
+        edges = cv2.Canny(self.img, CIRCLE_CANNY_THRESH1, CIRCLE_CANNY_THRESH2)
         fits = CircularRANSAC(edges).fit(
-            3,
-            6000,
-            threshold=1,
-            num_inliers=240,
+            RANSAC_NUM_POINTS,
+            RANSAC_NUM_SAMPLES,
+            threshold=RANSAC_THRESHOLD,
+            num_inliers=RANSAC_NUM_INLIERS,
         )
-        smallest = sorted(fits, key=lambda x: x[0].radius)[0]
-        smallest = rescale_circle(smallest[0], self.scaling_factor)
+        sorted_fits = sorted(fits, key=lambda x: x[0].radius)[0]
+        smallest = rescale_circle(sorted_fits[0], self.scaling_factor)
 
-        return crop_to_circle(self.original_img, smallest, 0)
-
-    def detect_oxygenator(self) -> tuple[np.ndarray, float]:
-        if self.oxygenator_type == OxygenatorType.HLS:
-            lines = self.find_lines()
-            corners = self.find_corners(lines)
-            warped = self.warp_perspective(corners)
-
-            area_pixels = warped.shape[0] * warped.shape[1]
-            area_mm2 = GETINGE_ECMO_SIDE_LENGTH_MM**2.0
-        else:
-            warped = self.find_circle()
-
-            area_pixels = np.pi * ((warped.shape[0] / 2) ** 2)
-            area_mm2 = np.pi * ((NAUTILUS_DIAMETER_MM / 2) ** 2)
-
-        mm2_per_pixel = area_mm2 / area_pixels
-
-        return warped, mm2_per_pixel
+        return smallest
