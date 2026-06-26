@@ -1,3 +1,11 @@
+/**
+ * Calls the API at the path with given options, handling re-authentication if needed.
+ *
+ * @param path Endpoint to call.
+ * @param options Fetch options.
+ *
+ * @returns JSON response output.
+ */
 export const apiFetch = async (
   path: string,
   options: { [key: string]: any } = {},

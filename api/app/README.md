@@ -19,29 +19,9 @@ These commands must be performed while the app is running. `make upgrade` is opt
 
 **Important note**: Running `migrate` does not perfectly generate a migration script. Often times, _especially_ with enum columns with PostgreSQL, manually editing of the generated script in `migrations/versions/` will be required. If you run into errors while running `upgrade`, you will likely need to edit the script (or delete conflicting data in the database).
 
-### Adding Enum Columns
-
-Alembic will frequently auto-generate incorrect scripts for enum columns. The expected format is as follows:
-
-```python
-def upgrade():
-    op.execute("CREATE TYPE enumnametype AS ENUM ('VALUE1', 'VALUE2')")
-    op.add_column(
-        "tablename",
-        sa.Column(
-            "columnname", sa.Enum("VALUE1", "VALUE2", name="enumnametype"), nullable=False
-        ),
-    )
-
-
-def downgrade():
-    op.drop_column("tablename", "columnname")
-    op.execute("DROP TYPE enumnametype")
-```
-
 ### Updating Enum Columns
 
-Even more difficult is adding new fields to enum columns after they are already defined. The expected format should be as follows:
+Alembic will frequently auto-generate incorrect scripts for updating enum columns (or not generate any). The expected format should be as follows:
 
 ```python
 def upgrade():

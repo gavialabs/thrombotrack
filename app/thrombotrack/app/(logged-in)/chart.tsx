@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
   },
   yAxisLabelContainer: {
-    width: 5,
+    width: 15,
     height: "100%",
     justifyContent: "center",
     alignItems: "center",

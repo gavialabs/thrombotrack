@@ -12,7 +12,7 @@ const ChartHeader: FC = (): JSX.Element => {
 
   // Go back.
   const doPressBack = (): void => {
-    router.back();
+    router.navigate("/");
   };
 
   return (

@@ -295,7 +295,7 @@ class OxygenatorDetector:
             """Rescales a circle equation by a given scaling factor."""
             cx, cy = circle.center
             r = circle.radius
-            new_center = rescale_points(np.array([cx, cy]), scaling_factor)[0]
+            new_center = rescale_points([[cx, cy]], scaling_factor)[0]
             cx, cy = new_center
             r = 1 / scaling_factor * r
             conv = lambda x: int(round(x, 0))

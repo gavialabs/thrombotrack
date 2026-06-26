@@ -1,3 +1,5 @@
+// Entrypoint for logged-in users.
+
 import { Stack } from "expo-router";
 import { FC, JSX } from "react";
 
@@ -7,6 +9,7 @@ import HomeHeader from "@/components/HomeHeader";
 import GalleryHeader from "@/components/GalleryHeader";
 import { StateProvider } from "@/context/StateContext";
 
+// Navigation stack of the actual app content for logged-in users.
 const LoggedInLayout: FC = (): JSX.Element => (
   <StateProvider>
     <Stack

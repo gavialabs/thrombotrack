@@ -251,9 +251,9 @@ class Segmentor:
             clustered, _, centers = cluster_image(
                 window,
                 (
-                    K_CLOT_CIRCLE
+                    K_CLOT_FREEFORM
                     if annotation_type == AnnotationType.CLOT
-                    else K_FIBRIN_CIRCLE
+                    else K_FIBRIN_FREEFORM
                 ),
             )
 
