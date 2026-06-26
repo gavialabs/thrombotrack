@@ -10,9 +10,9 @@ from sqlalchemy.orm import DeclarativeBase
 
 load_dotenv()
 
-AUTHORITY = os.environ["AUTHORITY"]
-CLIENT_ID = os.environ["CLIENT_ID"]
-CLIENT_SECRET = os.environ["CLIENT_SECRET"]
+UW_OIDC_AUTHORITY = os.environ["UW_OIDC_AUTHORITY"]
+UW_OIDC_CLIENT_ID = os.environ["UW_OIDC_CLIENT_ID"]
+UW_OIDC_CLIENT_SECRET = os.environ["UW_OIDC_CLIENT_SECRET"]
 
 
 class Base(DeclarativeBase):
@@ -22,9 +22,9 @@ class Base(DeclarativeBase):
 db = SQLAlchemy(model_class=Base)
 ma = Marshmallow()
 msal_app = msal.ConfidentialClientApplication(
-    CLIENT_ID,
-    authority=AUTHORITY,
-    client_credential=CLIENT_SECRET,
+    UW_OIDC_CLIENT_ID,
+    authority=UW_OIDC_AUTHORITY,
+    client_credential=UW_OIDC_CLIENT_SECRET,
 )
 
 

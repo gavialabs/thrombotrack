@@ -15,8 +15,6 @@ from app.schemas import MeSchema
 from app.services.auth import upsert_user
 from app.decorators import login_required
 
-AUTHORITY = os.environ["AUTHORITY"]
-CLIENT_ID = os.environ["CLIENT_ID"]
 API_URL = os.environ["API_URL"]
 EXPO_URL = os.environ["EXPO_URL"]
 
