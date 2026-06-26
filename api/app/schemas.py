@@ -1,3 +1,9 @@
+"""Marshmallow schemas for validation of route payloads and responses.
+
+Uses Marshmallow SQLAlchemy auto-schema to fill out objects with fields corresponding to the
+actual table columns. Anything else defined here is overriding or extending on the models.
+"""
+
 import base64
 import uuid
 from marshmallow import fields, pre_dump, Schema

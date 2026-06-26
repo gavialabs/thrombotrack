@@ -1,16 +1,10 @@
-# Annotation session services
+"""Services for interacting with AnnotationSessions in the database."""
 
 import datetime
 import numpy as np
 from flask import g
 from sqlalchemy import delete
 
-from app.segmentation.segmentor import Segmentor, AnnotationType
-from app.models import (
-    OxygenatorImage,
-    AnnotationSession,
-    Annotation,
-)
 from .. import db
 from app.helpers import (
     decode_img,
@@ -19,6 +13,12 @@ from app.helpers import (
     encode_mask,
     overlay_mask,
 )
+from app.models import (
+    OxygenatorImage,
+    AnnotationSession,
+    Annotation,
+)
+from app.segmentation.segmentor import Segmentor, AnnotationType
 
 
 def create_annotation_session(
@@ -213,6 +213,26 @@ def redo_annotation(annotation_session: AnnotationSession) -> None:
     annotation_session.mask = encode_mask(session_mask)
     annotation_session.clot_area += last_undo_annotation.clot_area
     annotation_session.fibrin_area += last_undo_annotation.fibrin_area
+
+    db.session.commit()
+
+
+def clear_annotations(
+    annotation_session: AnnotationSession, oxygenator_image: OxygenatorImage
+) -> None:
+    """Clears all annotations in a session."""
+    stmt = delete(Annotation).where(
+        Annotation.annotation_session_id == annotation_session.id,
+    )
+    db.session.execute(stmt)
+
+    mask = np.zeros(
+        (oxygenator_image.width_cropped, oxygenator_image.height_cropped),
+        dtype=np.bool,
+    )
+    annotation_session.mask = encode_mask(mask)
+    annotation_session.clot_area = 0
+    annotation_session.fibrin_area = 0
 
     db.session.commit()
 

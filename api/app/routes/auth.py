@@ -1,3 +1,11 @@
+"""Endpoints for authentication.
+
+/api/auth:
+    GET /login: Initiates Microsoft Entra login.
+    GET /callback: Exchanges code for an ID token and sets cookie.
+    GET /me: Checks if the user is authenticated.
+"""
+
 import os
 from flask import (
     Blueprint,

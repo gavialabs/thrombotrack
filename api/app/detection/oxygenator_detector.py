@@ -105,16 +105,16 @@ class OxygenatorDetector:
             img, scaling_factor = resize_with_scaling_factor(
                 self.original_img, HLS_LONGEST_SIDE
             )
-            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)  # type: ignore
-            img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)  # type: ignore
-            img = cv2.GaussianBlur(img, (HLS_GAUSSIAN_BLUR, HLS_GAUSSIAN_BLUR), cv2.BORDER_DEFAULT)  # type: ignore
+            img = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
+            img = cv2.normalize(img, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
+            img = cv2.GaussianBlur(img, (HLS_GAUSSIAN_BLUR, HLS_GAUSSIAN_BLUR), cv2.BORDER_DEFAULT)
         else:
             img, scaling_factor = resize_with_scaling_factor(
                 self.original_img, NAUTILUS_LONGEST_SIDE
             )
             img = make_greyscale(img, NAUTILUS_GRAYSCALE_WEIGHTS)
 
-        self.img: np.ndarray = img  # type: ignore
+        self.img: np.ndarray = img
         self.scaling_factor = scaling_factor
 
     def detect_oxygenator(self) -> tuple[np.ndarray, float]:

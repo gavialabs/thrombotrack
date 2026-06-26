@@ -1,4 +1,4 @@
-# Miscellaneous object typing
+"""Miscellaneous object typing with dataclasses."""
 
 from datetime import datetime
 from typing import NamedTuple, TypedDict

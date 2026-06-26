@@ -7,19 +7,9 @@ from sklearn.cluster import KMeans
 from skimage.draw import ellipse, polygon2mask
 from skimage.segmentation import flood
 
+from app.constants import *
 from app.helpers import decode_mask, make_greyscale
 from app.models import AnnotationType, Annotation
-
-WINDOW_SIZE = 150
-K_CLOT_POINT = 8
-K_FIBRIN_POINT = 6
-K_CLOT_CIRCLE = 4
-K_FIBRIN_CIRCLE = 4
-MORPH_KERNEL_SIZE = 3
-SEED_NEIGHBORHOOD = 2
-GRAYSCALE_WEIGHTS = (0.8, 0.2, 0)
-BLUR_KERNEL_SIZE = 5
-
 
 def cluster_image(
     img: np.ndarray,
@@ -54,7 +44,7 @@ def cluster_image(
         y, x = seed
 
     gray = make_greyscale(img, grayscale_weights)
-    eq = cv2.equalizeHist(gray)  # type: ignore
+    eq = cv2.equalizeHist(gray)
     blurred = cv2.GaussianBlur(eq, (blur, blur), cv2.BORDER_DEFAULT)
 
     init_y = np.random.choice(np.arange(img.shape[0]), size=k - 1, replace=False)
@@ -176,6 +166,7 @@ class Segmentor:
     """
 
     def __init__(self, img: np.ndarray, mask: np.ndarray | None = None):
+        """Initializes with an image and mask."""
         self.img = img
         self.img_mask = (
             mask.copy() if mask is not None else np.zeros(img.shape[:2], dtype=np.bool)

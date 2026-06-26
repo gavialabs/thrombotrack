@@ -13,6 +13,7 @@ The API is a multi-container Docker Compose application, a virtual machine, with
 - Python 3.13
 - Docker and Docker Compose
 - Make utility
+- Mypy (recommended for typing)
 
 ### Initial Setup
 

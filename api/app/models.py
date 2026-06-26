@@ -1,3 +1,8 @@
+"""SQLAlchemy database model definitions.
+
+The model hierarchy is Oxygenator -> Images -> Annotation Sessions -> Annotations. Users exist
+separately and are associated with annotation sessions."""
+
 from datetime import datetime
 from sqlalchemy import (
     Enum,
@@ -17,21 +22,23 @@ from .constants import OxygenatorType, AnnotationType
 
 TZDateTimeCreated = Annotated[
     datetime, mapped_column(DateTime(timezone=True), server_default=func.now())
-]
+]  # helper type for a timezone-aware datetime field that defaults to now
 
 TZDateTimeUpdated = Annotated[
     datetime,
     mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     ),
-]
-
-
-# Oxygenator -> Images -> Annotation Sessions -> Annotations
-# user is attached to an annotation session
+]  # same as above but updates with the new time whenever the row is edited
 
 
 class Annotation(db.Model):
+    """Output of a user's drawing on the image.
+
+    Could be a segmentation of a clot or fibrin or an area that was erased. Stores the original
+    coordinates of the user's path when drawing as well as a boolean mask of the annotation and
+    how much clot or fibrin area it encompasses."""
+
     __tablename__ = "annotations"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -55,10 +62,12 @@ class Annotation(db.Model):
 
 
 class User(db.Model):
+    """User logged in through Microsoft Entra."""
+
     __tablename__ = "users"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
-    object_id: Mapped[UUID]
+    object_id: Mapped[UUID]  # unique ID from Microsoft Entra
     email: Mapped[str]
     name: Mapped[str]
 
@@ -73,6 +82,12 @@ class User(db.Model):
 
 
 class AnnotationSession(db.Model):
+    """A session of annotations carried out by a single user.
+
+    Sessions are started when an image is uploaded or viewed with &disabled=false. Multiple
+    sessions can be associated with an image, with the latest being respected as the ground truth.
+    """
+
     __tablename__ = "annotation_sessions"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -103,6 +118,8 @@ class AnnotationSession(db.Model):
 
 
 class OxygenatorImage(db.Model):
+    """Image of an oxygenator, including the original and cropped versions."""
+
     __tablename__ = "oxygenator_images"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -146,6 +163,8 @@ class OxygenatorImage(db.Model):
 
 
 class Oxygenator(db.Model):
+    """An oxygenator identified by a non-PII name and model type."""
+
     __tablename__ = "oxygenators"
 
     id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
@@ -159,7 +178,10 @@ class Oxygenator(db.Model):
 
     last_annotated_oxygenator_image_id: Mapped[UUID | None] = column_property(
         select(OxygenatorImage.id)
-        .where(OxygenatorImage.oxygenator_id == id, OxygenatorImage.thumbnail_annotated != None)
+        .where(
+            OxygenatorImage.oxygenator_id == id,
+            OxygenatorImage.thumbnail_annotated != None,
+        )
         .order_by(OxygenatorImage.created_at.desc())
         .limit(1)
         .correlate_except(OxygenatorImage)

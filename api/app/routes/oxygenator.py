@@ -1,3 +1,13 @@
+"""Endpoints for interacting with oxygenators.
+
+/api/oxygenators:
+    GET: Fetches a list of oxygenators.
+    POST: Creates a new oxygenator in the database.
+    PATCH /<id>: Changes name or type of an oxygenator.
+    DELETE /<id>: Deletes an oxygenator.
+    GET /<id>/history: Gets a list of annotations for an oxygenator.
+"""
+
 from flask import (
     Blueprint,
     Response,

@@ -1,3 +1,13 @@
+"""Endpoints for interacting with annotation sessions.
+
+/api/oxygenators/<id>/oxygenator_images/<id>/annotation_sessions/<id>:
+    POST: Annotates an oxygenator image.
+    POST /undo: Undoes the last annotation in a session.
+    POST /redo: Redoes the last annotation in a session.
+    POST /clear: Clears all annotations in a session.
+    POST /end: Marks an annotation session as ended.
+"""
+
 from flask import Blueprint, Response, abort, jsonify, request
 from typing import Literal
 from uuid import UUID
@@ -12,20 +22,34 @@ from app.services.annotation_session import (
     end_annotation_session,
     redo_annotation,
     undo_annotation,
+    clear_annotations,
 )
 
 annotation_session_bp = Blueprint(
     # rooted at /api/oxygenators/<id>/oxygenator_images
     "annotation_sessions",
     __name__,
-    url_prefix="/<uuid:oxygenator_image_id>/annotation_sessions",
+    url_prefix="/<uuid:oxygenator_image_id>/annotation_sessions/<uuid:annotation_session_id>",
 )
 
-# oxygenator_id and oxygenator_image_id get passed into routes defined here as function argument
+
+def access_check(
+    oxygenator_id: UUID, oxygenator_image_id: UUID, annotation_session_id: UUID
+) -> tuple[Oxygenator, OxygenatorImage, AnnotationSession]:
+    """Checks if the oxygenator, oxygenator image, and annotation session exist and are linked."""
+    oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
+    oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
+    if oxygenator_image.oxygenator_id != oxygenator.id:
+        abort(404)
+    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
+    if annotation_session.oxygenator_image_id != oxygenator_image.id:
+        abort(404)
+
+    return oxygenator, oxygenator_image, annotation_session
 
 
 @annotation_session_bp.route(
-    "/<uuid:annotation_session_id>",
+    "",
     methods=["POST"],
 )
 @login_required
@@ -46,13 +70,9 @@ def annotate_image(
         request.json
     )
 
-    oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
-    oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
-    if oxygenator_image.oxygenator_id != oxygenator.id:
-        abort(404)
-    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
-    if annotation_session.oxygenator_image_id != oxygenator_image.id:
-        abort(404)
+    _, oxygenator_image, annotation_session = access_check(
+        oxygenator_id, oxygenator_image_id, annotation_session_id
+    )
 
     create_annotation(
         oxygenator_image=oxygenator_image,
@@ -68,7 +88,7 @@ def annotate_image(
 
 
 @annotation_session_bp.route(
-    "/<uuid:annotation_session_id>/undo",
+    "/undo",
     methods=["POST"],
 )
 @login_required
@@ -85,13 +105,9 @@ def undo_last_annotation(
     Returns:
         AnnotationSessionSchema with just the latest `mask`.
     """
-    oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
-    oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
-    if oxygenator_image.oxygenator_id != oxygenator.id:
-        abort(404)
-    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
-    if annotation_session.oxygenator_image_id != oxygenator_image.id:
-        abort(404)
+    _, _, annotation_session = access_check(
+        oxygenator_id, oxygenator_image_id, annotation_session_id
+    )
 
     undo_annotation(annotation_session)
 
@@ -102,7 +118,7 @@ def undo_last_annotation(
 
 
 @annotation_session_bp.route(
-    "/<uuid:annotation_session_id>/redo",
+    "/redo",
     methods=["POST"],
 )
 @login_required
@@ -119,13 +135,9 @@ def redo_last_annotation(
     Returns:
         AnnotationSessionSchema with just the latest `mask`.
     """
-    oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
-    oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
-    if oxygenator_image.oxygenator_id != oxygenator.id:
-        abort(404)
-    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
-    if annotation_session.oxygenator_image_id != oxygenator_image.id:
-        abort(404)
+    _, _, annotation_session = access_check(
+        oxygenator_id, oxygenator_image_id, annotation_session_id
+    )
 
     redo_annotation(annotation_session)
 
@@ -136,7 +148,37 @@ def redo_last_annotation(
 
 
 @annotation_session_bp.route(
-    "/<uuid:annotation_session_id>/end",
+    "/clear",
+    methods=["POST"],
+)
+@login_required
+def clear_all_annotations(
+    oxygenator_id: UUID, oxygenator_image_id: UUID, annotation_session_id: UUID
+) -> tuple[Response, Literal[201]]:
+    """Clears all annotations in a session.
+
+    Args:
+        oxygenator_id: ID of oxygenator being annotated.
+        oxygenator_image_id: ID of oxygenator image being annotated.
+        annotation_session_id: ID of current annotation session.
+
+    Returns:
+        AnnotationSessionSchema with just the latest `mask`.
+    """
+    _, oxygenator_image, annotation_session = access_check(
+        oxygenator_id, oxygenator_image_id, annotation_session_id
+    )
+
+    clear_annotations(annotation_session, oxygenator_image)
+
+    return (
+        jsonify(AnnotationSessionSchema(only=("mask",)).dump(annotation_session)),
+        201,
+    )
+
+
+@annotation_session_bp.route(
+    "/end",
     methods=["POST"],
 )
 @login_required
@@ -155,13 +197,9 @@ def save_annotations(
     Returns:
         Empty 200 response.
     """
-    oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
-    oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
-    if oxygenator_image.oxygenator_id != oxygenator.id:
-        abort(404)
-    annotation_session = db.get_or_404(AnnotationSession, annotation_session_id)
-    if annotation_session.oxygenator_image_id != oxygenator_image.id:
-        abort(404)
+    _, _, annotation_session = access_check(
+        oxygenator_id, oxygenator_image_id, annotation_session_id
+    )
 
     end_annotation_session(annotation_session)
 

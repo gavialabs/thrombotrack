@@ -1,3 +1,5 @@
+"""Services for interacting with Users in the database."""
+
 from .. import db
 from app.models import User
 

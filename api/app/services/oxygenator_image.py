@@ -1,4 +1,4 @@
-# Oxygenator image services
+"""Services for interacting with OxygenatorImages in the database."""
 
 import numpy as np
 from PIL import Image
@@ -6,15 +6,12 @@ from sqlalchemy import func
 from uuid import UUID
 from werkzeug.datastructures import FileStorage
 
-from app.helpers import resize_with_scaling_factor
+from .. import db
 from app.detection.oxygenator_detector import OxygenatorDetector
+from app.helpers import encode_img, resize_with_scaling_factor
 from app.models import (
     Oxygenator,
     OxygenatorImage,
-)
-from .. import db
-from app.helpers import (
-    encode_img,
 )
 from app.services.annotation_session import create_annotation_session
 

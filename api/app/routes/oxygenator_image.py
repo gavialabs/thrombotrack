@@ -1,3 +1,11 @@
+"""Endpoints for interacting with oxygenator images.
+
+/api/oxygenators/<id>/oxygenator_images:
+    GET: Gets image history for an oxygenator.
+    POST: Uploads an image of an oxygenator.
+    GET /<id>: Gets an oxygenator image + latest annotated mask.
+"""
+
 from flask import Blueprint, Response, abort, jsonify, request, g
 from typing import Literal
 from uuid import UUID

@@ -1,3 +1,5 @@
+"""Helper functions for working with images and masks between the backend, database, and frontend."""
+
 import cv2
 import io
 import numpy as np
@@ -70,7 +72,7 @@ def make_transparent_mask(mask: np.ndarray | bytes) -> np.ndarray | bytes:
     transparent[transparent > 0] = 255
 
     # add alpha channel and make black pixels transparent so we can overlay mask on FE
-    transparent = cv2.cvtColor(transparent, cv2.COLOR_GRAY2RGBA)  # type: ignore
+    transparent = cv2.cvtColor(transparent, cv2.COLOR_GRAY2RGBA)
     transparent[transparent[:, :, 0] == 0] = 0
 
     return transparent if not encoded else encode_mask(transparent)
@@ -91,7 +93,7 @@ def overlay_mask(mask: np.ndarray, img: np.ndarray) -> np.ndarray:
     """
     img_alpha = cv2.cvtColor(img, cv2.COLOR_RGB2RGBA)
     resized_mask, _ = resize_with_scaling_factor(mask, img.shape[0])
-    display_mask: np.ndarray = make_transparent_mask(resized_mask)  # type: ignore
+    display_mask: np.ndarray = make_transparent_mask(resized_mask)
 
     # overlay resized transparent mask on top of thumbnail, same as how it is presented in frontend
     # in AnnotateCanvas.
@@ -184,7 +186,7 @@ def make_greyscale(
     rw, gw, bw = weights
 
     image = (r * rw + g * gw + b * bw).squeeze()
-    image = np.uint8(image)  # type: ignore
+    image = np.uint8(image)
 
     if not is_array:
         image = Image.fromarray(image)

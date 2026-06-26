@@ -1,17 +1,17 @@
-# Oxygenator services
+"""Services for interacting with Oxygenators in the database."""
 
 from sqlalchemy import func, Row
 from uuid import UUID
 from typing import Sequence
 
+from .. import db
+from app.dto import AnnotationHistoryQueryRow, OxygenatorListQueryRow
 from app.models import (
     Oxygenator,
     OxygenatorImage,
     AnnotationSession,
     User,
 )
-from .. import db
-from app.dto import AnnotationHistoryQueryRow, OxygenatorListQueryRow
 
 
 def get_oxygenators() -> Sequence[Row[OxygenatorListQueryRow]]:
@@ -83,4 +83,3 @@ def get_annotation_history(
     result = db.session.execute(stmt).all()
 
     return result
-

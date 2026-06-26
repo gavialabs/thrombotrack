@@ -1,3 +1,7 @@
+"""Initializes the Flask app, SQLAlchemy, Marshmallow, and MSAL.
+
+Also defines CORS configuration, cookie settings, and registers endpoints."""
+
 import msal
 import os
 from datetime import timedelta

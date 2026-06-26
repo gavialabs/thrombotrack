@@ -39,7 +39,7 @@ def find_center(p1: Point, p2: Point, p3: Point) -> Point | None:
     l3 = l1.from_slope_point(l1.perpendicular_slope(), m1)
     l4 = l2.from_slope_point(l2.perpendicular_slope(), m2)
 
-    return l3.intersection(l4)  # type: ignore
+    return l3.intersection(l4)
 
 
 class Circle:
@@ -243,10 +243,10 @@ def eliminate_similar_by_inliers(
     temp_fits = [[item[0], convert_to_index(item[1], points)] for item in fits]
     count = 1
     for i, fit1 in enumerate(temp_fits):
-        inliers1: np.ndarray = fit1[1]  # type: ignore
+        inliers1: np.ndarray = fit1[1]
         size1 = inliers1.size
         for j, fit2 in enumerate(temp_fits[i + 1 :]):
-            inliers2: np.ndarray = fit2[1]  # type: ignore
+            inliers2: np.ndarray = fit2[1]
             size2 = inliers2.size
 
             intersect = np.intersect1d(inliers1, inliers2, assume_unique=True)
@@ -328,7 +328,7 @@ class CircularRANSAC:
 
         sampler = Sampler(self.points, num_points, num_samples)
         fits = []
-        for _, point_set in enumerate(sampler):  # type: ignore
+        for _, point_set in enumerate(sampler):
             fit_object = CircularRANSACFit.fit(point_set)
             inliers = fit_object.inliers(self.points, threshold)
 
