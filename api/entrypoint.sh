@@ -10,9 +10,9 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== Starting Flask Application ===${NC}"
 
 # ---------- Set DATABASE_URL ----------
-ENCODED_PASS=$(python - <<- 'PYEOF'
-  import urllib.parse, os
-  print(urllib.parse.quote(os.environ["DB_PASS"]))
+ENCODED_PASS=$(python - << 'PYEOF'
+import urllib.parse, os
+print(urllib.parse.quote(os.environ["DB_PASS"]))
 PYEOF
 )
 
