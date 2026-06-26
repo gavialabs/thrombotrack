@@ -9,16 +9,25 @@ NC='\033[0m' # No Color
 
 echo -e "${GREEN}=== Starting Flask Application ===${NC}"
 
-# Verify that DATABASE_URL is defined
+# ---------- Set DATABASE_URL ----------
+ENCODED_PASS=$(python - <<- 'PYEOF'
+  import urllib.parse, os
+  print(urllib.parse.quote(os.environ["DB_PASS"]))
+PYEOF
+)
+
+export DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+# ---------- Verify that DATABASE_URL is defined ----------
 if [ -z "$DATABASE_URL" ]; then
   echo -e "${RED}✗ Error: DATABASE_URL is not defined${NC}"
   exit 1
 fi
 
-# Set PYTHONPATH
+# ---------- Set PYTHONPATH ----------
 export PYTHONPATH=/app:$PYTHONPATH
 
-# Wait for database to be ready
+# ---------- Wait for database to be ready ----------
 echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
 MAX_TRIES=30
 TRIES=0
@@ -35,7 +44,7 @@ done
 
 echo -e "${GREEN}✓ Database ready${NC}"
 
-# Run Alembic migrations
+# ---------- Run Alembic migrations ----------
 echo -e "${GREEN}📦 Applying database migrations...${NC}"
 if alembic upgrade head; then
   echo -e "${GREEN}✓ Migrations applied successfully${NC}"
@@ -44,7 +53,7 @@ else
   exit 1
 fi
 
-# Start Flask application
+# ---------- Start Flask application ----------
 echo -e "${GREEN}🚀 Starting Flask server on local port ${APP_PORT:-5000}:5000${NC}"
 # Flask will run on port 5000 within the container, but is accessible through APP_PORT
 exec python -m flask run --host=0.0.0.0 --port=5000 --debug

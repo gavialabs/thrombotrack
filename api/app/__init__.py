@@ -7,9 +7,6 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from sqlalchemy.orm import DeclarativeBase
-from urllib.parse import quote
-from sqlalchemy.engine import URL
-from pathlib import Path
 
 load_dotenv()
 
@@ -37,29 +34,9 @@ def create_app():
         app,
         supports_credentials=True,  # allow cookies to be submitted across domains
         origins=[
-            "http://localhost:8081",
-            f"https://{os.environ["CLOUDFRONT_DOMAIN_NAME"]}"
+            f"https://{os.environ["CLOUDFRONT_DOMAIN_NAME"]}" if os.environ["CLOUDFRONT_DOMAIN_NAME"] else "http://localhost:8081",
         ],
     )
-
-    # Construct DATABASE_URL and URL encode the password (in case there are odd characters like @./\:
-    db_user = os.environ["DB_USER"]
-    db_pass = os.environ["DB_PASS"]
-    db_host = os.environ["DB_HOST"]
-    db_name = os.environ["DB_NAME"]
-    db_port = os.environ["DB_PORT"]
-    if not all([db_user, db_pass, db_host, db_name, db_port]):
-        raise RuntimeError(f"Missing DB environment variables in {Path(__file__).name}")
-    # db_pass_encoded = quote(db_pass)
-    # os.environ["DATABASE_URL"] = f"postgresql://{db_user}:{db_pass_encoded}@{db_host}:{db_port}/{db_name}"
-    os.environ["DATABASE_URL"] = URL.create(
-        drivername="postgresql", 
-        username=db_user,
-        password=db_pass,
-        host=db_host,
-        port=int(db_port) if db_port else None,
-        database=db_name,
-    ).render_as_string(hide_password=False)
 
     app.config.update(
         SQLALCHEMY_DATABASE_URI=os.environ["DATABASE_URL"],
