@@ -27,31 +27,32 @@ fi
 # ---------- Set PYTHONPATH ----------
 export PYTHONPATH=/app:$PYTHONPATH
 
-# ---------- Wait for database to be ready ----------
-echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
-MAX_TRIES=30
-TRIES=0
+# # ---------- Wait for database to be ready ----------
+# echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
+# MAX_TRIES=30
+# TRIES=0
 
-until psql "$DATABASE_URL" -c '\l' > /dev/null 2>&1; do
-  TRIES=$((TRIES+1))
-  if [ $TRIES -eq $MAX_TRIES ]; then
-    echo -e "${RED}✗ Timeout: unable to connect to database${NC}"
-    exit 1
-  fi
-  echo -e "${YELLOW}  Attempt $TRIES/$MAX_TRIES...${NC}"
-  sleep 2
-done
+# until psql "$DATABASE_URL" -c '\l' > /dev/null 2>&1; do
+#   TRIES=$((TRIES+1))
+#   if [ $TRIES -eq $MAX_TRIES ]; then
+#     echo -e "${RED}✗ Timeout: unable to connect to database${NC}"
+#     exit 1
+#   fi
+#   echo -e "${YELLOW}  Attempt $TRIES/$MAX_TRIES...${NC}"
+#   sleep 2
+# done
 
-echo -e "${GREEN}✓ Database ready${NC}"
+# echo -e "${GREEN}✓ Database ready${NC}"
 
-# ---------- Run Alembic migrations ----------
-echo -e "${GREEN}📦 Applying database migrations...${NC}"
-if alembic upgrade head; then
-  echo -e "${GREEN}✓ Migrations applied successfully${NC}"
-else
-  echo -e "${RED}✗ Error applying migrations${NC}"
-  exit 1
-fi
+# # TODO: Copy the migration versions into the container for this to run
+# # ---------- Run Alembic migrations ----------
+# echo -e "${GREEN}📦 Applying database migrations...${NC}"
+# if alembic upgrade head; then
+#   echo -e "${GREEN}✓ Migrations applied successfully${NC}"
+# else
+#   echo -e "${RED}✗ Error applying migrations${NC}"
+#   exit 1
+# fi
 
 # ---------- Start Flask application ----------
 echo -e "${GREEN}🚀 Starting Flask server on local port ${APP_PORT:-5000}:5000${NC}"
