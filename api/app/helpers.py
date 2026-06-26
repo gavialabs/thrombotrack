@@ -38,7 +38,7 @@ def decode_mask(mask: bytes) -> np.ndarray:
 def encode_img(img: np.ndarray) -> bytes:
     """Encodes an image as bytes in JPEG format (see encode_mask)."""
     buf = io.BytesIO()
-    Image.fromarray(img).save(buf)
+    Image.fromarray(img).save(buf, format="jpeg")
     return buf.getvalue()
 
 

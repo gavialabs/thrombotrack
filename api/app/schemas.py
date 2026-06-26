@@ -88,7 +88,7 @@ class OxygenatorImageSchema(SQLAlchemyAutoSchema):
                 "cropped": data[0].cropped,
                 "mimetype": data[0].mimetype,
                 "current_annotation_session_id": data[1],
-                "mask": make_transparent_mask(data[2]),
+                "mask": make_transparent_mask(data[2]) if len(data) == 3 else None,
             }
 
         return data

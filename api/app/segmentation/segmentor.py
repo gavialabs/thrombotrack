@@ -1,3 +1,5 @@
+"""Module for segmenting oxygenator images to create Annotations."""
+
 import cv2
 import numpy as np
 from typing import Sequence
@@ -22,13 +24,12 @@ BLUR_KERNEL_SIZE = 5
 def cluster_image(
     img: np.ndarray,
     k: int,
-    seed: Sequence[int] | None = None,
+    seed: np.ndarray | None = None,
     neighborhood_size: int = SEED_NEIGHBORHOOD,
     grayscale_weights: tuple[float, float, float] = GRAYSCALE_WEIGHTS,
     blur: int = BLUR_KERNEL_SIZE,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Clusters an image.
+    """Clusters an image.
 
     Makes the image grayscale using provided or default weights to enhance contrast between blood
     and clotting/fibrin and remove glare from plastic. Equalizes the grayscale image's histogram to
@@ -37,6 +38,17 @@ def cluster_image(
     the seed to get an average color as one of the initial centroids. Otherwise, uses default
     k-means++ centroid initialization. Clusters the image and returns the clustered, blurred, and
     final centroids.
+
+    Args:
+        img: Image patch array to cluster.
+        k: Number of clusters.
+        seed: Point prompt on image (if exists).
+        neighborhood_size: Side length of square around seed point for initial centroid.
+        grayscale_weights: Tuple R, G, B weights when converting to grayscale (R + G + B = 1.0)
+        blur: Side length of kernel for Gaussian blur.
+
+    Returns:
+        Clustered image array, preprocessed image, and final centroids.
     """
     if seed is not None:
         y, x = seed
@@ -49,6 +61,7 @@ def cluster_image(
     init_x = np.random.choice(np.arange(img.shape[1]), size=k - 1, replace=False)
 
     if seed is not None:
+        # point prompt was used-- set an initial centroid to a neighborhood around seed
         if neighborhood_size > 0:
             neighborhood = blurred[
                 y - neighborhood_size // 2 : y + neighborhood_size // 2,
@@ -80,6 +93,7 @@ def cluster_image(
 def morphological_open_close(
     img: np.ndarray, kernel_size: int = MORPH_KERNEL_SIZE
 ) -> np.ndarray:
+    """Performs a morphological opening and closing on an array."""
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (kernel_size, kernel_size))
 
     opening = cv2.morphologyEx(img, cv2.MORPH_OPEN, kernel)
@@ -88,19 +102,37 @@ def morphological_open_close(
     return closing
 
 
-def smart_flood_fill(
+def smart_flood(
     clustered: np.ndarray,
     processed: np.ndarray,
-    seed: Sequence[int],
+    seed: np.ndarray,
     preserve_seed: bool = True,
-    continuous: bool = True,
+    contiguous: bool = True,
 ) -> np.ndarray:
-    # 1. flood fill on the clustered result
+    """Floods a clustered image at a given point and returns mask.
+
+    Floods at the given point and performs a morphological opening and closing. If the area was
+    eroded, uses the preprocessed (grayscale + histogram equalized + blurred) image to perform a
+    flood with tolerance 5 and morphological opening and closing, increasing tolerance by 2 until
+    area is selected. If preserve_seed, approximates mask using ellipse to include seed. If
+    contiguous, re-floods at seed point to remove discontiguities (introduced by erosion).
+
+    Args:
+        clustered: Clustered image array.
+        processed: Pre-processed image array from cluster_image.
+        seed: Point to flood at.
+        preserve_seed: Whether seed must be present in output.
+        contiguous: Whether mask area must be contiguous.
+
+    Returns:
+        Mask of flooded area.
+    """
+    # 1. flood on the clustered result
     mask = flood(clustered, tuple(seed)).astype(np.uint8)
     mask[mask > 0] = 255
     mask = morphological_open_close(mask)
 
-    # 2. regular flood fill on the non-clustered image until some area is actually selected
+    # 2. regular flood on the non-clustered image until some area is actually selected
     tol = 5
     while np.count_nonzero(mask) == 0:
         mask = flood(processed, tuple(seed), tolerance=tol).astype(np.uint8)
@@ -128,21 +160,42 @@ def smart_flood_fill(
         mask[rr, cc] = 1
         mask[*seed] = 1
 
-    if continuous:
-        # re-flood at the original seed to remove other discontinuous areas
+    if contiguous:
+        # re-flood at the original seed to remove discontiguities
         mask = flood(mask, tuple(seed)).astype(np.uint8)
 
     return mask
 
 
 class Segmentor:
-    def __init__(self, img: np.ndarray, mask: np.ndarray | None = None) -> None:
+    """Segments oxygenator images given prompts to create Annotations.
+
+    Attributes:
+        img: Original image array.
+        img_mask: Mask of all segmentations of image, same size as img.
+    """
+
+    def __init__(self, img: np.ndarray, mask: np.ndarray | None = None):
         self.img = img
         self.img_mask = (
             mask.copy() if mask is not None else np.zeros(img.shape[:2], dtype=np.bool)
         )
 
-    def get_window_around_point(self, point: Sequence[int], size: int):
+    def get_window_around_point(
+        self, point: Sequence[int], size: int
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Returns a window up to a specified size around a point of img.
+
+        Window size may be smaller if the point is near the boundary of the image.
+
+        Args:
+            point: Point to return window around.
+            size: Side length of window.
+
+        Returns:
+            Array of the image window/patch and the relative coordinates of the center of the
+            window.
+        """
         y_min = max(point[0] - (size // 2), 0)
         x_min = max(point[1] - (size // 2), 0)
 
@@ -158,8 +211,20 @@ class Segmentor:
     def segment(
         self,
         path: list[list[int]],
-        thrombus_type: AnnotationType,
+        annotation_type: AnnotationType,
     ) -> np.ndarray:
+        """Segments img.
+
+        Determines if the provided path is a point or freeform prompt. Segments img using a window
+        around the given seed or using the enclosed area. Returns a mask of the segmentation area.
+
+        Args:
+            path: List of coordinates comprising the user input (drawn on the image).
+            annotation_type: Whether this is a clot or fibrin annotation.
+
+        Returns:
+            Mask of newly segmented area on img (same size as img).
+        """
         img_mask = np.zeros_like(self.img_mask, dtype=np.bool)
 
         if len(path) < min(K_CLOT_POINT, K_FIBRIN_POINT):
@@ -169,12 +234,12 @@ class Segmentor:
                 window,
                 (
                     K_CLOT_POINT
-                    if thrombus_type == AnnotationType.CLOT
+                    if annotation_type == AnnotationType.CLOT
                     else K_FIBRIN_POINT
                 ),
                 new_center,
             )
-            thrombus_mask = smart_flood_fill(clustered, processed, new_center)
+            thrombus_mask = smart_flood(clustered, processed, new_center)
 
             # transfer mask for this window onto the original image
             flood_indices = np.nonzero(thrombus_mask)
@@ -196,12 +261,12 @@ class Segmentor:
                 window,
                 (
                     K_CLOT_CIRCLE
-                    if thrombus_type == AnnotationType.CLOT
+                    if annotation_type == AnnotationType.CLOT
                     else K_FIBRIN_CIRCLE
                 ),
             )
 
-            if thrombus_type == AnnotationType.CLOT:
+            if annotation_type == AnnotationType.CLOT:
                 # take the darkest center
                 dominant_center = np.min(centers)
             else:
@@ -228,30 +293,43 @@ class Segmentor:
     def erase(
         self, path: list[list[int]], existing_annotations: list[Annotation]
     ) -> tuple[np.ndarray, int, int]:
+        """Erases segmented area.
+
+        Uses provided freeform prompt to iterate over existing annotations and sums the clot/fibrin
+        area from all annotations the prompt overlaps with.
+
+        Args:
+            path: List of coordinates comprising user input (drawn on image).
+            existing_annotations: List of existing Annotations for this image.
+
+        Returns:
+            Mask of the area described by path, clot area being erased, and fibrin area being
+            erased.
+        """
         bounds = np.flip(path)
         erase_mask = polygon2mask(self.img_mask.shape, bounds)
         self.img_mask[erase_mask == 1] = 0
 
-        for segmentation in existing_annotations:
-            if segmentation.thrombus_type != AnnotationType.ERASE:
+        for annotation in existing_annotations:
+            if annotation.type != AnnotationType.ERASE:
                 continue
 
             # if we erase on top of another erase, we don't want to double count the erased
             # clot/fibrin area
-            mask = decode_mask(segmentation.mask)
+            mask = decode_mask(annotation.mask)
             erase_mask &= ~mask
 
         clot_area = 0
         fibrin_area = 0
-        for segmentation in existing_annotations:
-            if segmentation.thrombus_type == AnnotationType.ERASE:
+        for annotation in existing_annotations:
+            if annotation.type == AnnotationType.ERASE:
                 continue
 
-            mask = decode_mask(segmentation.mask)
+            mask = decode_mask(annotation.mask)
             overlap = erase_mask & mask
             area = int(np.count_nonzero(overlap))
 
-            if segmentation.thrombus_type == AnnotationType.CLOT:
+            if annotation.type == AnnotationType.CLOT:
                 clot_area += area
             else:
                 fibrin_area += area
