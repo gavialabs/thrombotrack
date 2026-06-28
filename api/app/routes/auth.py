@@ -24,7 +24,7 @@ from app.services.auth import upsert_user
 from app.decorators import login_required
 
 API_URL = os.environ["API_URL"]
-EXPO_URL = os.environ["EXPO_URL"]
+FRONTEND_URL = os.environ["FRONTEND_URL"]
 
 SCOPES = ["email"]
 REDIRECT_URI = API_URL + "/api/auth/callback"
@@ -87,7 +87,7 @@ def auth_callback() -> Response:
     session.permanent = True  # allows us to set the expiration time
     session["user_id"] = str(user.id)
 
-    return redirect(EXPO_URL)
+    return redirect(FRONTEND_URL)
 
 
 @auth_bp.route("/me")

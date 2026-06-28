@@ -50,7 +50,7 @@ However, if you are on a network that enforces HTTPS connections (such as **edur
    ```
 4. Copy the ngrok public URL for port 5000 into `.env` for `EXPO_PUBLIC_API_URL`
 5. Copy the ngrok public URL for port 8081 into `/api/app/__init__.py` under CORS origins
-6. Copy both public URLs into `/api/.env` under `EXPO_URL` and `API_URL`
+6. Copy both public URLs into `/api/.env` under `FRONTEND_URL` and `API_URL`
 7. Start the API (in `/api`)
    ```bash
    make up
