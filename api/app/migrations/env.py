@@ -2,6 +2,8 @@ import os
 import sys
 from alembic import context
 from logging.config import fileConfig
+from sqlalchemy.engine import URL
+
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../..")))
 
@@ -16,10 +18,19 @@ app = create_app()
 
 target_metadata = db.metadata
 
-database_url = os.getenv("DATABASE_URL")
-if database_url:
-    config.set_main_option("sqlalchemy.url", database_url)
+database_url = URL.create(
+  drivername='postgresql',
+  username=os.environ["DB_USER"],
+  password=os.environ["DB_PASS"],
+  host=os.environ["DB_HOST"],
+  database=os.environ["DB_NAME"],
+)
 
+# This method does not allow password to be url encoded and could cause problem
+# if the password contains characters that confuses the parser.
+# database_url = os.getenv("DATABASE_URL")
+# if database_url:
+#     config.set_main_option("sqlalchemy.url", database_url)
 
 def run_migrations_offline() -> None:
     """Run migrations in 'offline' mode.
@@ -32,9 +43,10 @@ def run_migrations_offline() -> None:
     Calls to context.execute() here emit the given string to the
     script output.
     """
-    url = config.get_main_option("sqlalchemy.url")
+    # url = config.get_main_option("sqlalchemy.url")
     context.configure(
-        url=url,
+        # url=url,
+        url=database_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -51,6 +63,9 @@ def run_migrations_online() -> None:
     In this scenario we need to create an Engine
     and associate a connection with the context.
     """
+
+    # OR
+    # connectable = create_engine(database_url)
 
     with app.app_context():
         connectable = db.engine

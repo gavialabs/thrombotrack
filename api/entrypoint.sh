@@ -10,39 +10,46 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}=== Starting Flask Application ===${NC}"
 
 # ---------- Set DATABASE_URL ----------
-ENCODED_PASS=$(python - << 'PYEOF'
-import urllib.parse, os
-print(urllib.parse.quote(os.environ["DB_PASS"]))
-PYEOF
-)
-export DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
 
-# ---------- Verify that DATABASE_URL is defined ----------
-if [ -z "$DATABASE_URL" ]; then
-  echo -e "${RED}✗ Error: DATABASE_URL is not defined${NC}"
-  exit 1
-fi
+## Encode to URL safe password
+## AWS secretsmanager avoids some common charac that breaks DB connections
+## TODO: Check if this is a fair assumption that AWS secretsmanager generated pass is safe and does not need URL-safe encoding
+# ENCODED_PASS=$(python - << 'PYEOF'
+# import urllib.parse, os
+# print(urllib.parse.quote(os.environ["DB_PASS"]))
+# PYEOF
+# )
+# export DATABASE_URL="postgresql://${DB_USER}:${ENCODED_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+## Assuming that the password is URL safe
+# export DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@${DB_HOST}:${DB_PORT}/${DB_NAME}"
+
+# # ---------- Verify that DATABASE_URL is defined ----------
+# if [ -z "$DATABASE_URL" ]; then
+#   echo -e "${RED}✗ Error: DATABASE_URL is not defined${NC}"
+#   exit 1
+# fi
 
 # ---------- Set PYTHONPATH ----------
 export PYTHONPATH=/app:$PYTHONPATH
 
-# ---------- Wait for database to be ready ----------
-echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
-MAX_TRIES=30
-TRIES=0
+# # ---------- Wait for database to be ready ----------
+# echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
+# MAX_TRIES=30
+# TRIES=0
 
-# until psql "$DATABASE_URL" -c '\l' > /dev/null 2>&1; do
-until psql "$DATABASE_URL" -c '\l'; do
-  TRIES=$((TRIES+1))
-  if [ $TRIES -eq $MAX_TRIES ]; then
-    echo -e "${RED}✗ Timeout: unable to connect to database${NC}"
-    exit 1
-  fi
-  echo -e "${YELLOW}  Attempt $TRIES/$MAX_TRIES...${NC}"
-  sleep 2
-done
+# # until psql "$DATABASE_URL" -c '\l' > /dev/null 2>&1; do
+# until psql "$DATABASE_URL" -c '\l'; do
+#   TRIES=$((TRIES+1))
+#   if [ $TRIES -eq $MAX_TRIES ]; then
+#     echo -e "${RED}✗ Timeout: unable to connect to database${NC}"
+#     exit 1
+#   fi
+#   echo -e "${YELLOW}  Attempt $TRIES/$MAX_TRIES...${NC}"
+#   sleep 2
+# done
 
-echo -e "${GREEN}✓ Database ready${NC}"
+# echo -e "${GREEN}✓ Database ready${NC}"
 
 # ---------- Run Alembic migrations ----------
 echo -e "${GREEN}📦 Applying database migrations...${NC}"
