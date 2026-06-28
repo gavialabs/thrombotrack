@@ -11,6 +11,7 @@ from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from flask_marshmallow import Marshmallow
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.engine import URL
 
 load_dotenv()
 
@@ -18,6 +19,14 @@ UW_OIDC_AUTHORITY = os.environ["UW_OIDC_AUTHORITY"]
 UW_OIDC_CLIENT_ID = os.environ["UW_OIDC_CLIENT_ID"]
 UW_OIDC_CLIENT_SECRET = os.environ["UW_OIDC_CLIENT_SECRET"]
 
+
+database_url = URL.create(
+  drivername='postgresql',
+  username=os.environ["DB_USER"],
+  password=os.environ["DB_PASS"],
+  host=os.environ["DB_HOST"],
+  database=os.environ["DB_NAME"],
+)
 
 class Base(DeclarativeBase):
     pass
@@ -43,14 +52,16 @@ def create_app():
     )
 
     app.config.update(
-        SQLALCHEMY_DATABASE_URI=os.environ["DATABASE_URL"],
+        # SQLALCHEMY_DATABASE_URI=os.environ["DATABASE_URL"],
+        SQLALCHEMY_DATABASE_URI=database_url,
         SECRET_KEY=os.getenv("SECRET_KEY", "dev-secret-key"),
     )
 
     if os.getenv("FLASK_ENV") == "production":
         app.config.update(
-            SESSION_COOKIE_SAMESITE="None",  # allow cross-domain cookies
-            SESSION_COOKIE_SECURE=True,  # only send cookies over HTTPS requests
+            # SESSION_COOKIE_SAMESITE="None",  # allow cross-domain cookies
+            # SESSION_COOKIE_SECURE=True,  # only send cookies over HTTPS requests
+            SESSION_COOKIE_SAMESITE="Lax",  # API and Frontend should have the same domain so okay
             SESSION_COOKIE_HTTPONLY=True,  # no JS access to cookies
             PERMANENT_SESSION_LIFETIME=timedelta(hours=8),  # cookies expire after 8 hours
         )
