@@ -24,14 +24,14 @@ from app.segmentation.segmentor import Segmentor, AnnotationType
 def create_annotation_session(
     oxygenator_image: OxygenatorImage,
     last_annotation_session: AnnotationSession | None = None,
+    commit: bool = False,
 ) -> AnnotationSession:
     """Creates an annotation session for an oxygenator image.
 
-    Optionally copies annotations from a previous session.
+    Optionally copies annotations from a previous session, and optionally commits.
 
     Args:
         oxygenator_image: OxygenatorImage to create annotation session for.
-
 
     Returns:
         New AnnotationSession.
@@ -75,7 +75,8 @@ def create_annotation_session(
         )
         db.session.add(annotation_session)
 
-    db.session.commit()
+    if commit:
+        db.session.commit()
 
     return annotation_session
 

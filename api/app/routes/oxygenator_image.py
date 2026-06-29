@@ -146,7 +146,7 @@ def view_image(
                 current_annotation_session.mask,
             ]
         )
-    elif oxygenator_image.last_annotation_session_id:
+    elif oxygenator_image.last_annotation_session_id is not None:
         # image was previously annotated and session was ended
         last_annotation_session = db.get_or_404(
             AnnotationSession, oxygenator_image.last_annotation_session_id
@@ -154,7 +154,7 @@ def view_image(
 
         if request.args.get("start_annotation_session") == "true":
             new_annotation_session = create_annotation_session(
-                oxygenator_image, last_annotation_session
+                oxygenator_image, last_annotation_session, commit=True
             )
             payload = tuple(
                 [
@@ -167,7 +167,9 @@ def view_image(
             payload = tuple([oxygenator_image, None, last_annotation_session.mask])
     else:
         # the image was uploaded to the database but an annotation session was never started
-        new_annotation_session = create_annotation_session(oxygenator_image)
+        new_annotation_session = create_annotation_session(
+            oxygenator_image, commit=True
+        )
         payload = tuple(
             [
                 oxygenator_image,
