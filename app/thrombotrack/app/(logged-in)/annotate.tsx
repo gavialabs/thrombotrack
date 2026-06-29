@@ -109,7 +109,6 @@ const AnnotateScreen: FC = (): JSX.Element => {
           // set the current annotation session ID-- if we are starting a new session
           // (disabled == false), this will be a new session ID, and if we are continuing an
           // unsaved session, this will be the existing session ID (otherwise null)
-          console.log(data);
           annotationSessionIdRef.current = data.current_annotation_session_id;
           const imageBitmap = await base64ToBitmap(data.cropped, data.mimetype);
           setImage(imageBitmap);

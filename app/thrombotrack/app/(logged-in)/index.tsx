@@ -67,7 +67,6 @@ const HomeScreen: FC = (): JSX.Element => {
       },
     })
       .then((data: Oxygenator) => {
-        console.log(data);
         setOxygenators(
           [
             ...oxygenators.filter((oxygenator) => oxygenator.id !== undefined),
