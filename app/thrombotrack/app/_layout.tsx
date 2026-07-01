@@ -5,6 +5,7 @@ import { FC, JSX } from "react";
 
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import HomeHeader from "@/components/HomeHeader";
+import ScrollToTop from "@/components/ScrollToTop";
 
 /**
  * Entrypoint to app.
@@ -14,6 +15,7 @@ import HomeHeader from "@/components/HomeHeader";
 const Root: FC = (): JSX.Element => {
   return (
     <AuthProvider>
+      <ScrollToTop />
       <RootNavigator />
     </AuthProvider>
   );

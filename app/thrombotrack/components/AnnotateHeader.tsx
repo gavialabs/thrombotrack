@@ -13,7 +13,7 @@ const INSTRUCTION_TEXT =
 type AnnotateHeaderProps = {
   disabled?: boolean;
   onFinish?: () => void;
-  isCroppingImage: boolean;
+  isCroppingImage?: boolean;
 };
 
 const AnnotateHeader: FC<AnnotateHeaderProps> = ({
