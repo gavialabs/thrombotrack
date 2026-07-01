@@ -10,7 +10,7 @@ Most likely the oxygenator is not found because there are not four candidate cor
 
 #### Troubleshooting Canny edge detection
 
-After the Canny edge detection is run, you can see the Canny output with `Image.fromarray(edges).save("edges.png")`. If the inner edges of the oxygenator are not showing up in the Canny output, then the upper and lower threshold need to be adjusted on this line: `edges = cv2.Canny(self.img, ret / 3 * 2, ret * 2)`.
+After the Canny edge detection is run, you can see the Canny output with `Image.fromarray(edges).save("edges.png")`. If the inner edges of the oxygenator are not showing up in the Canny output, then the upper and lower threshold need to be adjusted on this line: `edges = cv2.Canny(self.img, ret / 3 * 2, ret * 2)`. It also may be worth changing the preprocessing routine in `preprocess()`. I have found better performance on some images when you disable the Gaussian blur and use the same greyscale weights as the Nautilus oxygenators (can try disabling normalization too).
 
 #### Troubleshooting Hough transform
 
