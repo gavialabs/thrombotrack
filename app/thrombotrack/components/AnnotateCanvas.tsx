@@ -426,6 +426,17 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
     }
   }, [resetZoom]);
 
+  /**
+   * Renders cropping outline.
+   *
+   * If the backend did not return a successful crop, then we will first allow the user to manually
+   * crop the image before annotating. The user will be able to zoom and pan the image to fit the
+   * static boundaries of the circle or diamond outline drawn here. This only works on mobile since
+   * we do not have panning/zooming implemented on desktop.
+   *
+   * @returns Circle or diamond outline to show where the image will be cropped. Returns null if
+   *          not cropping.
+   */
   const renderCropOutline = (): JSX.Element | null => {
     if (!isCroppingImage || image === null) {
       return null;
