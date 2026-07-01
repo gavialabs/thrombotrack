@@ -13,12 +13,13 @@ from uuid import UUID
 from .. import db
 from app.constants import ALLOWED_EXTENSIONS
 from app.decorators import login_required
+from app.dto import CropImagePayload
 from app.models import AnnotationSession, Oxygenator, OxygenatorImage
-from app.schemas import OxygenatorImageSchema
+from app.schemas import OxygenatorImageSchema, CropImageSchema
 from app.services.annotation_session import (
     create_annotation_session,
 )
-from app.services.oxygenator_image import get_images, create_image
+from app.services.oxygenator_image import get_images, create_image, manual_crop_image
 
 oxygenator_image_bp = Blueprint(
     # rooted at /api/oxygenators
@@ -65,7 +66,7 @@ def upload_image(oxygenator_id: UUID) -> tuple[Response, Literal[201]]:
         image: Image of oxygenator.
 
     Returns:
-        OxygenatorImageSchema with id, cropped, mimetype, and current_annotation_session_id.
+        OxygenatorImageSchema with id, cropped, and current_annotation_session_id.
     """
     oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
 
@@ -88,7 +89,7 @@ def upload_image(oxygenator_id: UUID) -> tuple[Response, Literal[201]]:
     return (
         jsonify(
             OxygenatorImageSchema(
-                only=("id", "cropped", "mimetype", "current_annotation_session_id")
+                only=("id", "cropped", "current_annotation_session_id")
             ).dump(image_and_session)
         ),
         201,
@@ -115,7 +116,7 @@ def view_image(
         oxygenator_image_id: ID of oxygenator image to fetch.
 
     Returns:
-        OxygenatorImageSchema with id, cropped, mimetype, current_annotation_session_id, and mask.
+        OxygenatorImageSchema with id, cropped, current_annotation_session_id, and mask.
     """
     oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
     oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
@@ -184,11 +185,36 @@ def view_image(
                 only=(
                     "id",
                     "cropped",
-                    "mimetype",
                     "current_annotation_session_id",
                     "mask",
                 )
             ).dump(payload)
         ),
         200,
+    )
+
+
+@oxygenator_image_bp.route("/<uuid:oxygenator_image_id>/crop", methods=["POST"])
+@login_required
+def crop_image(oxygenator_id: UUID, oxygenator_image_id: UUID):
+    """Crops an oxygenator image to a user-specified region and starts an annotation session."""
+    oxygenator = db.get_or_404(Oxygenator, oxygenator_id)
+    oxygenator_image = db.get_or_404(OxygenatorImage, oxygenator_image_id)
+    if oxygenator_image.oxygenator_id != oxygenator.id:
+        abort(404)
+
+    payload: CropImagePayload = CropImageSchema().dump(request.json)
+
+    origin = payload["origin"]
+    image_and_session = manual_crop_image(
+        oxygenator_image, oxygenator.type, origin["x"], origin["y"], payload["scale"]
+    )
+
+    return (
+        jsonify(
+            OxygenatorImageSchema(
+                only=("cropped", "current_annotation_session_id")
+            ).dump(image_and_session)
+        ),
+        201,
     )

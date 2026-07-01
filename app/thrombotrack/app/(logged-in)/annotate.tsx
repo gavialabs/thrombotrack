@@ -17,11 +17,11 @@ import {
 } from "react-native";
 
 import { apiFetch } from "@/api";
-import Canvas from "@/components/AnnotateCanvas";
+import AnnotateCanvas from "@/components/AnnotateCanvas";
 import * as Colors from "@/constants/colors";
 import { useStateContext } from "@/context/StateContext";
 import AnnotateHeader from "@/components/AnnotateHeader";
-import { Annotation, OxygenatorImage } from "@/constants/types";
+import { Annotation, Coordinate, OxygenatorImage } from "@/constants/types";
 import { base64ToBitmap } from "@/helpers";
 
 enum AnnotationType {
@@ -39,7 +39,7 @@ const AnnotateScreen: FC = (): JSX.Element => {
   const router = useRouter();
   const { oxygenatorId, oxygenatorImageId, disabled } = useGlobalSearchParams<{
     oxygenatorId: string;
-    oxygenatorImageId?: string;
+    oxygenatorImageId?: string; // only present if viewing a past image
     disabled?: string;
   }>();
 
@@ -49,8 +49,14 @@ const AnnotateScreen: FC = (): JSX.Element => {
   const [annotationType, setAnnotationType] = useState<AnnotationType>(
     AnnotationType.CLOT,
   ); // whether clot/fibrin/eraser is selected
-  const [loadingMask, setLoadingMask] = useState(false); // disables annotations while loading
-  const [hideMask, setHideMask] = useState(false); // hides annotations
+  const [loadingMask, setLoadingMask] = useState<boolean>(false); // disables annotations while loading
+  const [hideMask, setHideMask] = useState<boolean>(false); // hides annotations
+  const [isCroppingImage, setIsCroppingImage] = useState<boolean>(false); // displays cropping boundaries
+  const [croppingPayload, setCroppingPayload] = useState<{
+    origin: Coordinate;
+    scale: number;
+  }>({ origin: { x: 0, y: 0 }, scale: 1 });
+  const [resetCanvasZoom, setResetCanvasZoom] = useState<boolean>(false); // resets zoom/pan after cropping image
 
   const imageIdRef = useRef<string | null>(oxygenatorImageId ?? null); // database oxygenator image id
   const annotationSessionIdRef = useRef<string | null>(null); // database annotation session id
@@ -65,7 +71,6 @@ const AnnotateScreen: FC = (): JSX.Element => {
     if (
       oxygenatorId === undefined ||
       (state.file === null && oxygenatorImageId === undefined) ||
-      dispatch === null ||
       !isLoadingImage
     ) {
       return;
@@ -83,11 +88,21 @@ const AnnotateScreen: FC = (): JSX.Element => {
       })
         .then(
           (
-            data: Omit<OxygenatorImage, "thumbnail" | "created_at" | "mask">,
+            data: Pick<
+              OxygenatorImage,
+              "id" | "cropped" | "current_annotation_session_id"
+            >,
           ) => {
             imageIdRef.current = data.id;
+
+            if (data.cropped === null) {
+              // auto-cropping is disabled or failed
+              setIsCroppingImage(true);
+              return createImageBitmap(state.file);
+            }
+
             annotationSessionIdRef.current = data.current_annotation_session_id;
-            return base64ToBitmap(data.cropped, data.mimetype);
+            return base64ToBitmap(data.cropped, "jpeg");
           },
         )
         .then((bitmap) => setImage(bitmap))
@@ -98,7 +113,6 @@ const AnnotateScreen: FC = (): JSX.Element => {
         })
         .finally(() => {
           setIsLoadingImage(false);
-          dispatch({ type: "SET_FILE", payload: null });
         });
     } else {
       // fetch the image ID specified in URL params-- this means we just came from the gallery
@@ -110,7 +124,7 @@ const AnnotateScreen: FC = (): JSX.Element => {
           // (disabled == false), this will be a new session ID, and if we are continuing an
           // unsaved session, this will be the existing session ID (otherwise null)
           annotationSessionIdRef.current = data.current_annotation_session_id;
-          const imageBitmap = await base64ToBitmap(data.cropped, data.mimetype);
+          const imageBitmap = await base64ToBitmap(data.cropped, "jpeg");
           setImage(imageBitmap);
 
           if (data.mask !== null) {
@@ -127,7 +141,6 @@ const AnnotateScreen: FC = (): JSX.Element => {
     oxygenatorId,
     oxygenatorImageId,
     disabled,
-    dispatch,
     isLoadingImage,
   ]);
 
@@ -137,26 +150,73 @@ const AnnotateScreen: FC = (): JSX.Element => {
    * Defined here rather than in AnnotateHeader for easier access to local variables.
    */
   useEffect(() => {
-    // Marks the session as ended in the database and redirects to home screen.
+    // If cropping, POSTs the pan and zoom offset for the manually cropped image. Otherwise, marks
+    // the session as ended in the database and redirects to home screen.
     const doFinish = (): void => {
-      apiFetch(
-        `/oxygenators/${oxygenatorId}/oxygenator_images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/end`,
-        {
-          method: "POST",
-        },
-      )
-        .then(() => router.push("/"))
-        .catch((error) => {
-          console.error(error);
-        });
+      if (dispatch === null) {
+        return;
+      }
+
+      if (isCroppingImage) {
+        // upload the cropping parameters and get back an annotation session and cropped image
+        apiFetch(
+          `/oxygenators/${oxygenatorId}/oxygenator_images/${imageIdRef.current}/crop`,
+          {
+            method: "POST",
+            body: croppingPayload,
+          },
+        )
+          .then(
+            (
+              data: Pick<
+                OxygenatorImage,
+                "cropped" | "current_annotation_session_id"
+              >,
+            ) => {
+              setIsCroppingImage(false);
+              dispatch({ type: "SET_FILE", payload: null });
+              annotationSessionIdRef.current =
+                data.current_annotation_session_id;
+              return base64ToBitmap(data.cropped, "jpeg");
+            },
+          )
+          .then((bitmap) => setImage(bitmap))
+          .then(() => setResetCanvasZoom(true))
+          .catch((error) => {
+            console.error(error);
+          });
+      } else {
+        apiFetch(
+          `/oxygenators/${oxygenatorId}/oxygenator_images/${imageIdRef.current}/annotation_sessions/${annotationSessionIdRef.current}/end`,
+          {
+            method: "POST",
+          },
+        )
+          .then(() => router.push("/"))
+          .catch((error) => {
+            console.error(error);
+          });
+      }
     };
 
     navigation.setOptions({
       header: () => (
-        <AnnotateHeader disabled={isAnnotationDisabled} onFinish={doFinish} />
+        <AnnotateHeader
+          disabled={isAnnotationDisabled}
+          onFinish={doFinish}
+          isCroppingImage={isCroppingImage}
+        />
       ),
     });
-  }, [navigation, oxygenatorId, router, isAnnotationDisabled]);
+  }, [
+    navigation,
+    oxygenatorId,
+    router,
+    isAnnotationDisabled,
+    isCroppingImage,
+    croppingPayload,
+    dispatch,
+  ]);
 
   /**
    * Uploads an annotation path to the database.
@@ -256,7 +316,11 @@ const AnnotateScreen: FC = (): JSX.Element => {
       .finally(() => setLoadingMask(false));
   };
 
-  const renderToolbar = (): JSX.Element => {
+  const renderToolbar = (): JSX.Element | null => {
+    if (isCroppingImage) {
+      return null;
+    }
+
     const leftActions = [
       {
         key: "hide",
@@ -411,12 +475,15 @@ const AnnotateScreen: FC = (): JSX.Element => {
     // @ts-ignore
     <View style={[styles.container, { height: "calc(100dvh - 50px)" }]}>
       {/* Annotation canvas */}
-      <Canvas
+      <AnnotateCanvas
         annotateImage={annotateImage}
         disabled={isAnnotationDisabled}
         hideMask={hideMask}
         image={image}
         mask={mask}
+        isCroppingImage={isCroppingImage}
+        setCroppingPayload={setCroppingPayload}
+        resetZoom={resetCanvasZoom}
       />
 
       {/* Toolbar-- must place after canvas so that it layers on top */}
@@ -440,7 +507,7 @@ const styles = StyleSheet.create({
   },
   toolbar: {
     position: "absolute",
-    top: 10,
+    top: 20,
     display: "flex",
     alignItems: "center",
     flexDirection: "row",

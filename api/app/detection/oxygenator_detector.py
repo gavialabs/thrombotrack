@@ -3,6 +3,9 @@
 import cv2
 import math
 import numpy as np
+import traceback
+from flask import current_app as app
+# from PIL import Image
 from sklearn.cluster import KMeans
 from typing import Sequence
 
@@ -82,6 +85,40 @@ def rescale_points(points: np.ndarray, scaling_factor: float) -> list[list[int]]
     return out
 
 
+def warp_perspective(img: np.ndarray, corners: np.ndarray) -> np.ndarray:
+    """Transforms the list of corners on an image to a perfect square."""
+    # calculate side length of resulting square as mean of difference between adjacent corners
+    side_length = int(
+        np.mean(
+            [
+                np.linalg.norm(corners[1] - corners[0]),
+                np.linalg.norm(corners[2] - corners[1]),
+                np.linalg.norm(corners[3] - corners[2]),
+                np.linalg.norm(corners[0] - corners[3]),
+            ]
+        )
+    )
+    # maps the top corner to (0, 0) (basically rotates oxygenator by -45 degrees)
+    output_points = np.array(
+        [[0, side_length], [0, 0], [side_length, 0], [side_length, side_length]],
+        dtype=np.float32,
+    )
+    M = cv2.getPerspectiveTransform(
+        corners,
+        output_points,
+    )
+    return cv2.warpPerspective(img, M, (side_length, side_length))
+
+
+def crop_to_circle(
+    img: np.ndarray, circle: Circle, buffer: int = CIRCLE_CROP_BUFFER
+) -> np.ndarray:
+    """Crops an image to the square edges of the given circle with an optional buffer."""
+    cx, cy = circle.center
+    r = circle.radius + buffer
+    return img[int(cy - r) : int(cy + r + 1), int(cx - r) : int(cx + r + 1)]
+
+
 class OxygenatorDetector:
     """Detects oxygenators in images.
 
@@ -117,30 +154,41 @@ class OxygenatorDetector:
         self.img: np.ndarray = img
         self.scaling_factor = scaling_factor
 
-    def detect_oxygenator(self) -> tuple[np.ndarray, float]:
-        """Detects an oxygenator in original image and crops to the detected area.
+    def detect_oxygenator(self) -> tuple[np.ndarray, float | None]:
+        """Optionally detects an oxygenator and crops original image to the detected area.
 
         Uses the length of the detected image to determine a conversion factor between square
-        millimeters and pixels for this image.
+        millimeters and pixels for this image. If cropping is disabled (or fails), returns None for
+        the conversion factor and the user will manually crop the image.
 
         Returns:
             Cropped image array and conversion factor.
         """
-        if self.oxygenator_type == OxygenatorType.HLS:
-            lines = self.find_lines()
-            corners = self.find_corners(lines)
-            warped = self.warp_perspective(corners)
+        mm2_per_pixel = None
+        warped = self.original_img
 
-            area_pixels = warped.shape[0] * warped.shape[1]
-            area_mm2 = HLS_SIDE_LENGTH_MM**2.0
-        else:
-            circle = self.find_circle()
-            warped = self.crop_to_circle(circle)
+        if ENABLE_CROPPING:
+            try:
+                if self.oxygenator_type == OxygenatorType.HLS:
+                    lines = self.find_lines()
+                    corners = self.find_corners(lines)
+                    warped = warp_perspective(self.original_img, corners)
 
-            area_pixels = np.pi * ((warped.shape[0] / 2) ** 2)
-            area_mm2 = np.pi * ((NAUTILUS_DIAMETER_MM / 2) ** 2)
+                    area_pixels = warped.shape[0] * warped.shape[1]
+                    area_mm2 = HLS_SIDE_LENGTH_MM**2.0
+                else:
+                    circle = self.find_circle()
+                    warped = crop_to_circle(self.original_img, circle)
 
-        mm2_per_pixel = area_mm2 / area_pixels
+                    area_pixels = np.pi * ((warped.shape[0] / 2) ** 2)
+                    area_mm2 = np.pi * ((NAUTILUS_DIAMETER_MM / 2) ** 2)
+
+                mm2_per_pixel = area_mm2 / area_pixels
+            except Exception as e:
+                app.logger.error(
+                    f"Failed to perform auto-cropping: {str(e)}", exc_info=True
+                )
+                traceback.print_exc()
 
         return warped, mm2_per_pixel
 
@@ -163,6 +211,16 @@ class OxygenatorDetector:
         for line in lines:
             for x1, y1, x2, y2 in line:
                 linear_equations.append(LinearEquation.from_points((x1, y1), (x2, y2)))
+
+        # debug the lines detected by Hough transform
+        # line_image = np.copy(self.img) * 0
+        # for line in lines:
+        #     for x1, y1, x2, y2 in line:
+        #         linear_equations.append(LinearEquation.from_points((x1, y1), (x2, y2)))
+        #         cv2.line(line_image, (x1, y1), (x2, y2), (255, 0, 0), 3)
+
+        # lines_edges = cv2.addWeighted(self.img, 0.8, line_image, 1, 0)
+        # Image.fromarray(lines_edges).save("lines.png")
 
         return linear_equations
 
@@ -255,38 +313,6 @@ class OxygenatorDetector:
         )
 
         return rescaled_corners
-
-    def warp_perspective(self, corners: np.ndarray) -> np.ndarray:
-        """Transforms the list of corners on an image to a perfect square."""
-        # calculate side length of resulting square as mean of difference between adjacent corners
-        side_length = int(
-            np.mean(
-                [
-                    np.linalg.norm(corners[1] - corners[0]),
-                    np.linalg.norm(corners[2] - corners[1]),
-                    np.linalg.norm(corners[3] - corners[2]),
-                    np.linalg.norm(corners[0] - corners[3]),
-                ]
-            )
-        )
-        # maps the top corner to (0, 0) (basically rotates oxygenator by -45 degrees)
-        output_points = np.array(
-            [[0, side_length], [0, 0], [side_length, 0], [side_length, side_length]],
-            dtype=np.float32,
-        )
-        M = cv2.getPerspectiveTransform(
-            corners,
-            output_points,
-        )
-        return cv2.warpPerspective(self.original_img, M, (side_length, side_length))
-
-    def crop_to_circle(
-        self, circle: Circle, buffer: int = CIRCLE_CROP_BUFFER
-    ) -> np.ndarray:
-        """Crops the original image to the edges of the given circle with an optional buffer."""
-        cx, cy = circle.center
-        r = circle.radius + buffer
-        return self.original_img[cy - r : cy + r + 1, cx - r : cx + r + 1]
 
     def find_circle(self) -> Circle:
         """Detects a circle in image using Canny and RANSAC."""

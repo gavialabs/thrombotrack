@@ -13,11 +13,13 @@ const INSTRUCTION_TEXT =
 type AnnotateHeaderProps = {
   disabled?: boolean;
   onFinish?: () => void;
+  isCroppingImage: boolean;
 };
 
 const AnnotateHeader: FC<AnnotateHeaderProps> = ({
   disabled,
   onFinish,
+  isCroppingImage,
 }): JSX.Element => {
   const router = useRouter();
   const { oxygenatorId } = useGlobalSearchParams<{ oxygenatorId: string }>();
@@ -31,7 +33,7 @@ const AnnotateHeader: FC<AnnotateHeaderProps> = ({
   };
 
   const doPressSave = (): void => {
-    if (onFinish !== undefined && !disabled) {
+    if (onFinish !== undefined && (isCroppingImage || !disabled)) {
       onFinish();
     }
   };
@@ -43,7 +45,9 @@ const AnnotateHeader: FC<AnnotateHeaderProps> = ({
       </TouchableOpacity>
 
       <View style={styles.titleContainer}>
-        <Text style={styles.title}>{disabled ? "View" : "Annotate"} Image</Text>
+        <Text style={styles.title}>
+          {isCroppingImage ? "Crop" : disabled ? "View" : "Annotate"} Image
+        </Text>
         {!disabled ? (
           <TouchableOpacity
             onPress={() => window.alert(INSTRUCTION_TEXT)}
@@ -56,7 +60,10 @@ const AnnotateHeader: FC<AnnotateHeaderProps> = ({
 
       <TouchableOpacity
         onPress={doPressSave}
-        style={[styles.saveButton, { opacity: disabled ? 0 : 1 }]}
+        style={[
+          styles.saveButton,
+          { opacity: isCroppingImage ? 1 : disabled ? 0 : 1 },
+        ]}
       >
         <Text style={styles.save}>Save</Text>
       </TouchableOpacity>

@@ -173,7 +173,10 @@ const OxygenatorCard: FC<OxygenatorCardProps> = ({
         dispatch({ type: "SET_FILE", payload: file });
         router.navigate({
           pathname: "/annotate",
-          params: { oxygenatorId: oxygenator.id },
+          params: {
+            oxygenatorId: oxygenator.id,
+            oxygenatorType: oxygenator.type,
+          },
         });
       },
     );

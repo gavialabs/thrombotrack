@@ -1,6 +1,10 @@
 // Canvas for drawing on image to create annotations
 
-import { FC, JSX, useEffect, useRef } from "react";
+import { useGlobalSearchParams } from "expo-router";
+import { FC, JSX, useEffect, useRef, useState } from "react";
+import { View } from "react-native";
+
+import { Coordinate, OxygenatorType } from "@/constants/types";
 
 type AnnotateCanvasProps = {
   disabled: boolean;
@@ -8,11 +12,9 @@ type AnnotateCanvasProps = {
   mask: ImageBitmap | null;
   annotateImage: (path: [number, number][]) => void;
   hideMask: boolean;
-};
-
-type Coordinate = {
-  x: number;
-  y: number;
+  isCroppingImage: boolean;
+  setCroppingPayload: (payload: { origin: Coordinate; scale: number }) => void;
+  resetZoom: boolean;
 };
 
 /**
@@ -38,12 +40,19 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
   mask,
   annotateImage,
   hideMask,
+  isCroppingImage,
+  setCroppingPayload,
+  resetZoom,
 }): JSX.Element => {
+  const { oxygenatorType } = useGlobalSearchParams<{
+    oxygenatorType?: OxygenatorType;
+  }>();
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const contextRef = useRef<CanvasRenderingContext2D | null>(null);
 
   // zoom + panning
-  const imageScaleRef = useRef<number>(1); // scaling factor to display the entire image on screen
+  const [imageScale, setImageScale] = useState<number>(1); // scaling factor to display the entire image on screen
   const cssScaleRef = useRef<number>(1); // how much the user is zooming
   const lastPinchDistanceRef = useRef<number>(1); // distance between user's fingers zooming
   const originRef = useRef<Coordinate>({ x: 0, y: 0 }); // origin of image (used for panning)
@@ -52,17 +61,6 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
   // drawing: use refs here so that we don't trigger state updates while drawing
   const pathRef = useRef<[number, number][]>([]); // xy coordinates of annotation on image
   const isDrawingRef = useRef<boolean>(false); // whether we are currently drawing
-
-  /**
-   * Converts from a CSS pixel value to image pixel value.
-   *
-   * @param point CSS pixel coordinate to convert.
-   * @param origin Current origin of image due to panning.
-   *
-   * @returns Image pixel coordinate.
-   */
-  const cssToImagePoint = (point: number, origin: number): number =>
-    (point - origin) / imageScaleRef.current / cssScaleRef.current;
 
   /**
    * Draw image and mask of annotations.
@@ -91,10 +89,10 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
     const scaleY = window.innerHeight / canvas.height;
 
     // save the scaling factor from original size -> css size
-    imageScaleRef.current = Math.min(scaleX, scaleY, 1);
+    const imageScale = Math.min(scaleX, scaleY, 1);
 
-    canvas.style.width = `${canvas.width * imageScaleRef.current}px`;
-    canvas.style.height = `${canvas.height * imageScaleRef.current}px`;
+    canvas.style.width = `${canvas.width * imageScale}px`;
+    canvas.style.height = `${canvas.height * imageScale}px`;
 
     // display image
     ctx.drawImage(image, 0, 0);
@@ -112,6 +110,8 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
     ctx.lineWidth = 5;
 
     contextRef.current = ctx;
+
+    setImageScale(imageScale);
   }, [image, mask, hideMask]);
 
   /**
@@ -121,6 +121,17 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
    * that we don't end up in a state update loop.
    */
   useEffect(() => {
+    /**
+     * Converts from a CSS pixel value to image pixel value.
+     *
+     * @param point CSS pixel coordinate to convert.
+     * @param origin Current origin of image due to panning.
+     *
+     * @returns Image pixel coordinate.
+     */
+    const cssToImagePoint = (point: number, origin: number): number =>
+      (point - origin) / imageScale / cssScaleRef.current;
+
     /**
      * Gets the distance between user's fingers while pinching to zoom.
      *
@@ -234,12 +245,16 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
         const zoom = currentPinchDistance / lastPinchDistanceRef.current;
 
         const currentScale = cssScaleRef.current;
-        // don't allow zooming out more than original scale, max 10x zoom
-        const newScale = Math.min(Math.max(currentScale * zoom, 1), 10);
+        let newScale = currentScale * zoom;
+
+        if (!isCroppingImage) {
+          // don't allow zooming out more than original scale, max 10x zoom
+          newScale = Math.min(Math.max(currentScale * zoom, 1), 10);
+        }
 
         let newOriginX = 0;
         let newOriginY = 0;
-        if (newScale > 1) {
+        if (newScale > 1 || isCroppingImage) {
           // @ts-ignore
           const { layerX, layerY } = e; // midpoint of the user's fingers
 
@@ -255,13 +270,15 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
           newOriginX += layerX - lastPinchMidpointRef.current.x;
           newOriginY += layerY - lastPinchMidpointRef.current.y;
 
-          // prevent panning x off-screen
-          const scaledWidth = canvas.width * imageScaleRef.current * newScale;
+          if (!isCroppingImage) {
+            // prevent panning x off-screen
+            const scaledWidth = canvas.width * imageScale * newScale;
 
-          const minX = Math.min(0, window.innerWidth - scaledWidth);
-          const maxX = Math.max(0, window.innerWidth - scaledWidth);
+            const minX = Math.min(0, window.innerWidth - scaledWidth);
+            const maxX = Math.max(0, window.innerWidth - scaledWidth);
 
-          newOriginX = Math.min(Math.max(newOriginX, minX), maxX);
+            newOriginX = Math.min(Math.max(newOriginX, minX), maxX);
+          }
         }
 
         // apply transform, add z component to possibly enable GPU acceleration
@@ -318,6 +335,15 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
         } else {
           annotateImage([...pathRef.current]);
         }
+      } else if (isCroppingImage) {
+        // save the latest zoom/pan info to send to backend
+        setCroppingPayload({
+          origin: {
+            x: originRef.current.x / imageScale / cssScaleRef.current,
+            y: originRef.current.y / imageScale / cssScaleRef.current,
+          },
+          scale: cssScaleRef.current,
+        });
       } else {
         // user just finished zooming/panning; redraw image and mask to remove any accidental
         // strokes
@@ -375,9 +401,80 @@ const AnnotateCanvas: FC<AnnotateCanvasProps> = ({
       canvas.removeEventListener("touchend", doTouchEnd);
       canvas.removeEventListener("touchcancel", doTouchCancel);
     };
-  }, [annotateImage, image, mask, hideMask, disabled]);
+  }, [
+    annotateImage,
+    image,
+    mask,
+    hideMask,
+    disabled,
+    isCroppingImage,
+    setCroppingPayload,
+    imageScale,
+  ]);
 
-  return <canvas ref={canvasRef} style={{ transformOrigin: "0 0" }} />;
+  useEffect(() => {
+    if (resetZoom) {
+      const canvas = canvasRef.current;
+      if (canvas === null) {
+        return;
+      }
+
+      // reset zoom/pan after cropping image
+      canvas.style.transform = "translate(0px, 0px) scale(1) translateZ(0)";
+      originRef.current = { x: 0, y: 0 };
+      cssScaleRef.current = 1;
+    }
+  }, [resetZoom]);
+
+  const renderCropOutline = (): JSX.Element | null => {
+    if (!isCroppingImage || image === null) {
+      return null;
+    }
+
+    const diag = (image.width * 3) / 4;
+
+    if (oxygenatorType === OxygenatorType.HLS) {
+      const side = diag / Math.sqrt(2);
+
+      return (
+        <View
+          pointerEvents="none"
+          style={{
+            top: (image.height / 2 - side / 2) * imageScale,
+            left: (image.width / 2 - side / 2) * imageScale,
+            position: "absolute",
+            width: side * imageScale,
+            height: side * imageScale,
+            border: "5px solid white",
+          }}
+        />
+      );
+    }
+
+    return (
+      <View
+        pointerEvents="none"
+        style={{
+          top: (image.height / 2 - diag / 2) * imageScale,
+          left: (image.width / 2 - diag / 2) * imageScale,
+          position: "absolute",
+          borderRadius: (diag * imageScale) / 2,
+          width: diag * imageScale,
+          height: diag * imageScale,
+          border: "5px solid white",
+          transform: "rotate(45deg)",
+        }}
+      />
+    );
+  };
+
+  return (
+    <View>
+      <canvas ref={canvasRef} style={{ transformOrigin: "0 0" }} />
+
+      {renderCropOutline()}
+    </View>
+  );
 };
 
 export default AnnotateCanvas;

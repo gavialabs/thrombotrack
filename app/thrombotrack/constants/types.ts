@@ -24,7 +24,6 @@ export type OxygenatorImage = {
   id: string;
   cropped: string;
   thumbnail: string;
-  mimetype: string;
   current_annotation_session_id: string | null;
   created_at: string;
   mask: string | null;
@@ -38,4 +37,9 @@ export type AnnotationSession = {
 
 export type Annotation = {
   mask: string;
+};
+
+export type Coordinate = {
+  x: number;
+  y: number;
 };

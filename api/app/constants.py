@@ -21,6 +21,8 @@ ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg", "heic"}
 HLS_SIDE_LENGTH_MM = 88
 NAUTILUS_DIAMETER_MM = 87.5
 
+ENABLE_CROPPING = False  # whether to perform auto-cropping
+
 # variables for tuning HLS oxygenator detection
 HLS_LONGEST_SIDE = (
     1024  # how many pixels the longest side of the rescaled image of an oxygenator should be
@@ -30,7 +32,7 @@ HLS_GAUSSIAN_BLUR = 5  # kernel size for Gaussian blur during preprocessing
 
 HOUGH_RHO = 1  # distance resolution in pixels of the Hough grid
 HOUGH_THETA = np.pi / 180  # angular resolution in radians of the Hough grid
-HOUGH_THRESHOLD = 150  # minimum number of votes (intersections in Hough grid cell)
+HOUGH_THRESHOLD = 100  # minimum number of votes (intersections in Hough grid cell)
 HOUGH_MIN_LINE_LENGTH = 30  # minimum number of pixels making up a line
 HOUGH_MAX_LINE_GAP = 0  # maximum gap in pixels between connectable line segments
 

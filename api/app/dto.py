@@ -27,3 +27,13 @@ class AnnotationHistoryQueryRow(NamedTuple):
 class AnnotateImagePayload(TypedDict):
     path: list[list[int]]
     type: AnnotationType
+
+
+class Coordinate(TypedDict):
+    x: float
+    y: float
+
+
+class CropImagePayload(TypedDict):
+    origin: Coordinate
+    scale: float

@@ -7,7 +7,7 @@ actual table columns. Anything else defined here is overriding or extending on t
 import base64
 import uuid
 from marshmallow import fields, pre_dump, Schema
-from marshmallow.fields import DateTime, Float, Integer, List, String, UUID
+from marshmallow.fields import DateTime, Float, Integer, List, Nested, String, UUID
 from marshmallow.validate import Length, OneOf, Range
 from marshmallow_sqlalchemy import SQLAlchemyAutoSchema
 
@@ -92,7 +92,6 @@ class OxygenatorImageSchema(SQLAlchemyAutoSchema):
             return {
                 "id": data[0].id,
                 "cropped": data[0].cropped,
-                "mimetype": data[0].mimetype,
                 "current_annotation_session_id": data[1],
                 "mask": make_transparent_mask(data[2]) if len(data) == 3 else None,
             }
@@ -133,3 +132,13 @@ class AnnotationSchema(SQLAlchemyAutoSchema):
             [AnnotationType.CLOT, AnnotationType.FIBRIN, AnnotationType.ERASE]
         )
     )
+
+
+class CoordinateSchema(Schema):
+    x = Float(required=True)
+    y = Float(required=True)
+
+
+class CropImageSchema(Schema):
+    origin = Nested(CoordinateSchema, required=True)
+    scale = Float(required=True)

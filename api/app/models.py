@@ -126,17 +126,15 @@ class OxygenatorImage(db.Model):
     oxygenator_id: Mapped[UUID] = mapped_column(
         ForeignKey("oxygenators.id", ondelete="CASCADE")
     )
-    mimetype: Mapped[str]
     original: Mapped[bytes] = mapped_column(LargeBinary)
-    thumbnail: Mapped[bytes] = mapped_column(LargeBinary)
-    cropped: Mapped[bytes] = mapped_column(LargeBinary)
+    thumbnail: Mapped[bytes | None] = mapped_column(LargeBinary)
+    cropped: Mapped[bytes | None] = mapped_column(LargeBinary)
     thumbnail_annotated: Mapped[bytes | None] = mapped_column(LargeBinary)
     width_original: Mapped[int]
     height_original: Mapped[int]
-    width_cropped: Mapped[int]
-    height_cropped: Mapped[int]
-    # define this column so that it can be used in subqueries below
-    mm2_per_pixel: Mapped[float] = mapped_column(db.Float)
+    width_cropped: Mapped[int | None]
+    height_cropped: Mapped[int | None]
+    mm2_per_pixel: Mapped[float | None]
 
     created_at: Mapped[TZDateTimeCreated]
 
