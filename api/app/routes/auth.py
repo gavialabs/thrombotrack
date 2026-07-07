@@ -27,7 +27,7 @@ API_URL = os.environ["API_URL"]
 FRONTEND_URL = os.environ["FRONTEND_URL"]
 
 SCOPES = ["email"]
-REDIRECT_URI = API_URL + "/api/auth/callback"
+REDIRECT_URI = API_URL + "/auth/callback"
 
 # rooted at /api
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
