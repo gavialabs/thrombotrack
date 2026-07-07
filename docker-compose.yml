@@ -1,15 +1,16 @@
 services:
-  web:
-    build: .
+  api:
+    build: ./api
     ports:
       - "${APP_PORT:-5000}:5000"
     environment:
       - FLASK_ENV=${FLASK_ENV:-development}
-      - PYTHONPATH=/ecmo-api
-      - DATABASE_URL=${DATABASE_URL}
+      # - PYTHONPATH=/ecmo-api # TODO: Delete this variable because this variable should already be set inside the container.
+      # - DATABASE_URL=${DATABASE_URL}  # TODO: Delete because db url is constructed using env variable
       - APP_PORT=${APP_PORT:-5000}
-    volumes:
-      - .:/ecmo-api
+    # TODO: Delete the volumes in the api service. I don't think we need to bind current directory to the container.
+    # volumes:
+    #   - .:/ecmo-api
     depends_on:
       db:
         condition: service_healthy
@@ -22,7 +23,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql
-      - ./backups:/backups
+      # - ./backups:/backups  # TODO: Delete this b/c we do not have backup in the local folder
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
