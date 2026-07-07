@@ -13,7 +13,7 @@ from flask_marshmallow import Marshmallow
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.engine import URL
 
-load_dotenv()
+# load_dotenv()
 
 UW_OIDC_AUTHORITY = os.environ["UW_OIDC_AUTHORITY"]
 UW_OIDC_CLIENT_ID = os.environ["UW_OIDC_CLIENT_ID"]
@@ -25,7 +25,7 @@ database_url = URL.create(
   username=os.environ["DB_USER"],
   password=os.environ["DB_PASS"],
   host=os.environ["DB_HOST"],
-  port=os.environ["DB_PORT"],
+  port=int(os.environ["DB_PORT"]),
   database=os.environ["DB_NAME"],
 )
 
@@ -48,7 +48,7 @@ def create_app():
         app,
         supports_credentials=True,  # allow cookies to be submitted across domains
         origins=[
-            f"{os.environ["FRONTEND_URL"]}" if os.environ["FRONTEND_URL"] else "http://localhost:8081",
+            f"{os.environ["FRONTEND_URL"]}",
         ],
     )
 
