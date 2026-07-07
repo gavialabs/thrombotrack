@@ -12,18 +12,8 @@ import ScrollToTop from "@/components/ScrollToTop";
  *
  * @returns RootNavigator wrapped in AuthProvider so it has access to `user`.
  */
-//// ARROW FUNCTION DECLARATION SYNTAX
-//const Root: FC = (): JSX.Element => {
-//  return (
-//    <AuthProvider>
-//      <ScrollToTop />
-//      <RootNavigator />
-//    </AuthProvider>
-//  );
-//};
-
-// STANDARD FUNCTION DECLARATION SYNTAX
-export default function Root(): JSX.Element {
+// ARROW FUNCTION DECLARATION SYNTAX
+const Root: FC = (): JSX.Element => {
   return (
     <AuthProvider>
       <ScrollToTop />
@@ -32,47 +22,23 @@ export default function Root(): JSX.Element {
   );
 };
 
+//// STANDARD FUNCTION DECLARATION SYNTAX
+//export default function Root(): JSX.Element {
+//  return (
+//    <AuthProvider>
+//      <ScrollToTop />
+//      <RootNavigator />
+//    </AuthProvider>
+//  );
+//};
+
 /**
  * Top-level navigation stack to protect routes requiring authentication.
  *
  * @returns Expo Navigation Stack containing logged out page and nested stack of real app pages.
  */
-//// ARROW FUNCTION DECLARATION SYNTAX
-//const RootNavigator: FC = (): JSX.Element | null => {
-//  const { userId, isLoading } = useAuth();
-//
-//  if (isLoading) {
-//    // return null while we are loading the auth state in useAuth. this fixes an issue where we
-//    // always redirect to the homepage when refreshing since userId is set to null while loading
-//    return null;
-//  }
-//
-//  return (
-//    <Stack
-//      screenOptions={{
-//        contentStyle: {
-//          backgroundColor: "transparent",
-//        },
-//      }}
-//    >
-//      {/* logged out users (when `userId` is not set) will be shown a dummy page */}
-//      <Stack.Protected guard={userId === null}>
-//        <Stack.Screen
-//          name="sign-in"
-//          options={{ header: () => <HomeHeader /> }}
-//        />
-//      </Stack.Protected>
-//
-//      {/* logged in users (when `userId` is set) will have access to the app pages */}
-//      <Stack.Protected guard={userId !== null}>
-//        <Stack.Screen name="(logged-in)" options={{ headerShown: false }} />
-//      </Stack.Protected>
-//    </Stack>
-//  );
-//};
-
-// STANDARD FUNCTION DECLARATION SYNTAX
-function RootNavigator(): JSX.Element | null {
+// ARROW FUNCTION DECLARATION SYNTAX
+const RootNavigator: FC = (): JSX.Element | null => {
   const { userId, isLoading } = useAuth();
 
   if (isLoading) {
@@ -105,5 +71,39 @@ function RootNavigator(): JSX.Element | null {
   );
 };
 
-//// FOR ARROW FUNCTION DECLARATION SYNTAX
-//export default Root;
+//// STANDARD FUNCTION DECLARATION SYNTAX
+//function RootNavigator(): JSX.Element | null {
+//  const { userId, isLoading } = useAuth();
+//
+//  if (isLoading) {
+//    // return null while we are loading the auth state in useAuth. this fixes an issue where we
+//    // always redirect to the homepage when refreshing since userId is set to null while loading
+//    return null;
+//  }
+//
+//  return (
+//    <Stack
+//      screenOptions={{
+//        contentStyle: {
+//          backgroundColor: "transparent",
+//        },
+//      }}
+//    >
+//      {/* logged out users (when `userId` is not set) will be shown a dummy page */}
+//      <Stack.Protected guard={userId === null}>
+//        <Stack.Screen
+//          name="sign-in"
+//          options={{ header: () => <HomeHeader /> }}
+//        />
+//      </Stack.Protected>
+//
+//      {/* logged in users (when `userId` is set) will have access to the app pages */}
+//      <Stack.Protected guard={userId !== null}>
+//        <Stack.Screen name="(logged-in)" options={{ headerShown: false }} />
+//      </Stack.Protected>
+//    </Stack>
+//  );
+//};
+
+// FOR ARROW FUNCTION DECLARATION SYNTAX
+export default Root;
