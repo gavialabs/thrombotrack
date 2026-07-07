@@ -164,7 +164,7 @@ const HomeScreen: FC = (): JSX.Element => {
     setOxygenators([
       {
         name: "",
-        type: OxygenatorType.HLS,
+        type: OxygenatorType.NAUTILUS,
         thumbnail: null,
         clot_area: null,
         fibrin_area: null,
