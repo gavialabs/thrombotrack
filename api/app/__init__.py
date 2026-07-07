@@ -48,7 +48,7 @@ def create_app():
         app,
         supports_credentials=True,  # allow cookies to be submitted across domains
         origins=[
-            f"https://{os.environ["FRONTEND_URL"]}" if os.environ["FRONTEND_URL"] else "http://localhost:8081",
+            f"{os.environ["FRONTEND_URL"]}" if os.environ["FRONTEND_URL"] else "http://localhost:8081",
         ],
     )
 
