@@ -254,8 +254,8 @@ const OxygenatorCard: FC<OxygenatorCardProps> = ({
           selectedValue={oxygenator.type}
           style={styles.picker}
         >
-          <Picker.Item label="HLS" value={OxygenatorType.HLS} />
           <Picker.Item label="Nautilus" value={OxygenatorType.NAUTILUS} />
+          <Picker.Item label="HLS" value={OxygenatorType.HLS} />
         </Picker>
       </View>
 
