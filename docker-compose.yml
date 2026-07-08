@@ -38,8 +38,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
+          cpus: "1"
+          memory: 1024M
         reservations:
           cpus: "0.25"
           memory: 256M
@@ -70,8 +70,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "0.50"
-          memory: 512M
+          cpus: "1"
+          memory: 1024M
         reservations:
           cpus: "0.25"
           memory: 256M
@@ -86,17 +86,16 @@ services:
       - path: ./app/thrombotrack/.env
         required: false
     environment:
-        - EXPO_PUBLIC_API_URL=http://localhost:${API_PORT}/api
-        # - EXPO_PUBLIC_API_URL=${API_URL}
+        - EXPO_PUBLIC_API_URL=${API_URL}
         - APP_PORT=${APP_PORT}
-    # deploy:
-    #   resources:
-    #     limits:
-    #       cpus: "0.50"
-    #       memory: 512M
-    #     reservations:
-    #       cpus: "0.25"
-    #       memory: 256M
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
     # volumes:
     #   - .:/app
     #   - /app/node_modules
