@@ -1,8 +1,11 @@
 # Use Python base image
 FROM python:3.13-slim
 
+# Build time arg
+ARG API_PORT
+
 # Set working directory
-WORKDIR /ecmo-api
+WORKDIR /thrombotrack-api
 
 # Install system dependencies for PostgreSQL and psycopg2
 RUN apt-get update -y && apt-get install -y postgresql-client
@@ -20,7 +23,7 @@ COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 # Expose port for Flask
-EXPOSE ${APP_PORT:-5000}
+EXPOSE ${API_PORT}
 
 # Define startup command
 ENTRYPOINT ["./entrypoint.sh"]

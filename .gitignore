@@ -1,3 +1,9 @@
-.DS_Store
 .mypy_cache
 .vscode
+
+# MacOS
+**/.DS_Store
+
+# Environmnt variables
+**/.env*
+!.env.example

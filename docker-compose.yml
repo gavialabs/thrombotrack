@@ -1,0 +1,111 @@
+# Docker compose for API and DB
+#
+# Note:
+# - env_file attr is for runtime, however, compose lookup automatically reads
+#   the local .env file before parsing the YAML and thus can be used to provide
+#   args for build time (args attribuite).
+
+services:
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      args:
+        - API_PORT=${API_PORT}
+    env_file:
+      - path: ./api/thrombotrack/.env
+        required: false
+    environment:
+      - FRONTEND_URL=${FRONTEND_URL}
+      - API_URL=${API_URL}
+      - API_PORT=${API_PORT}
+      - FLASK_SECRET_KEY=${FLASK_SECRET_KEY}
+      - UW_OIDC_AUTHORITY=${UW_OIDC_AUTHORITY}
+      - UW_OIDC_CLIENT_ID=${UW_OIDC_CLIENT_ID}
+      - UW_OIDC_CLIENT_SECRET=${UW_OIDC_CLIENT_SECRET}
+      - FLASK_ENV=${FLASK_ENV}
+      - DB_USER=${DB_USER}
+      - DB_PASS=${DB_PASS}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_NAME=${DB_NAME}
+      - API_RESOURCE_CPU_LIMIT_SIZE=${API_RESOURCE_CPU_LIMIT_SIZE}
+      - API_RESOURCE_MEMORY_LIMIT_MB=${API_RESOURCE_MEMORY_LIMIT_MB}
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    # volumes:
+    #   - .:/ecmo-api
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:18-alpine
+    env_file:
+      - path: ./db/.env
+        required: false
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASS}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_PORT=${DB_PORT}
+    # volumes:
+    #   - postgres_data:/var/lib/postgresql
+    #   # - ./backups:/backups  # TODO: Delete this b/c we do not have backup in the local folder
+    ports:
+      - "${DB_PORT}:${DB_PORT}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+
+  expo_start:
+    build:
+      context: ./app/thrombotrack
+      dockerfile: Dockerfile
+      args:
+        - APP_PORT=${APP_PORT}
+    env_file:
+      - path: ./app/thrombotrack/.env
+        required: false
+    environment:
+        - EXPO_PUBLIC_API_URL=${API_URL}
+        - APP_PORT=${APP_PORT}
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1024M
+        reservations:
+          cpus: "0.25"
+          memory: 256M
+    # volumes:
+    #   - .:/app
+    #   - /app/node_modules
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    stdin_open: true
+    tty: true
+    depends_on: 
+      - api
+
+
+volumes:
+  postgres_data:
