@@ -31,7 +31,7 @@ echo -e "${GREEN}=== Starting Flask Application ===${NC}"
 # fi
 
 # ---------- Set PYTHONPATH ----------
-export PYTHONPATH=/app:$PYTHONPATH
+export PYTHONPATH=./app:$PYTHONPATH
 
 # # ---------- Wait for database to be ready ----------
 # echo -e "${YELLOW}⏳ Waiting for database to be ready...${NC}"
@@ -61,7 +61,7 @@ else
 fi
 
 # ---------- Start Flask application ----------
-echo -e "${GREEN}🚀 Starting Flask server on local port ${API_PORT:-5000}:5000${NC}"
+echo -e "${GREEN}🚀 Starting Flask server on local port ${API_PORT}:${API_PORT}${NC}"
 # Flask will run on port 5000 within the container, but is accessible through API_PORT
 # exec python -m flask run --host=0.0.0.0 --port=5000 --debug
-exec gunicorn --config gunicorn_config.py app:app
+exec gunicorn --config gunicorn_config.py

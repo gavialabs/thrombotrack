@@ -7,6 +7,7 @@
 """
 
 import os
+import logging
 from flask import (
     Blueprint,
     abort,
@@ -27,7 +28,10 @@ API_URL = os.environ["API_URL"]
 FRONTEND_URL = os.environ["FRONTEND_URL"]
 
 SCOPES = ["email"]
-REDIRECT_URI = API_URL + "/api/auth/callback"
+REDIRECT_URI = API_URL + "/auth/callback"
+print(f"[DEBUG] API_URL - {API_URL}")
+print(f"[DEBUG] REDIRECT_URL - {REDIRECT_URI}")
+print(f"[DEBUG] FRONTEND_URL - {FRONTEND_URL}")
 
 # rooted at /api
 auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
