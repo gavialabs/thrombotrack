@@ -7,8 +7,8 @@ import os
 # ECS Task CPU and Memory units
 # cpu_units = 1024
 # memory_mb = 2048
-cpu_units = int(float(os.environ["API_RESOURCE_CPU_LIMIT_SIZE"]) * 1024)
-memory_mb = int(os.environ["API_RESOURCE_MEMORY_LIMIT_MB"])
+cpu_units = int(float(os.environ.get("API_RESOURCE_CPU_LIMIT_SIZE", 1)) * 1024)
+memory_mb = int(os.environ.get("API_RESOURCE_MEMORY_LIMIT_MB", 1024))
 
 vcpu = cpu_units // 1024
 worker_count = (vcpu * 2) + 1
