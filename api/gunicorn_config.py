@@ -1,26 +1,24 @@
 # gunicorn_config.py
-
-# ---------- Variables ----------
 import os
 
-# TODO: Read the CPU and memory units from env variables
+# ---------- Variables ----------
 # ECS Task CPU and Memory units
-# cpu_units = 1024
-# memory_mb = 2048
-cpu_units = int(float(os.environ.get("API_RESOURCE_CPU_LIMIT_SIZE", 1)) * 1024)
-memory_mb = int(os.environ.get("API_RESOURCE_MEMORY_LIMIT_MB", 1024))
+cpu_units = int(os.environ.get("API_RESOURCE_CPU_LIMIT_UNIT", 2048))
+memory_mb = int(os.environ.get("API_RESOURCE_MEMORY_LIMIT_MB", 4096))
+worker_per_vcpu = int(os.environ.get("API_RESOURCE_WORKER_PER_VCPU", 2))
+thread_per_worker = int(os.environ.get("API_RESOURCE_THREAD_PER_WORKER", 4))
+api_port = os.environ["API_PORT"]
 
-vcpu = cpu_units // 1024
-worker_count = (vcpu * 2) + 1
-threads_per_worker = 4  # 2-4 is the recommended range
-
-API_PORT = os.environ["API_PORT"]
+# ---------- Variable calculations
+vcpu = int(cpu_units // 1024)
+worker_count = int((vcpu * worker_per_vcpu) + 1)
+threads = worker_count * thread_per_worker
 
 # ---------- Variables for Gunicorn ----------
 # Gunicorn config file documentation - https://gunicorn.org/reference/settings/#reload
-bind = f"0.0.0.0:{API_PORT}"
+bind = f"0.0.0.0:{api_port}"
 workers = worker_count
-threads = workers * threads_per_worker
+threads=threads
 timeout = 120
 wsgi_app = "wsgi:app"
 #reload = os.environ["FLASK_ENV"] == "development"
